@@ -1153,6 +1153,8 @@ ${[...events].reverse().map(e => `[${TimeFormatter.format(e.timestamp)}] ${e.mes
     shockCountForAmiodarone1Ref.current = null;
     startTimeRef.current = null;
     setUndoHistory([]);
+    setIsTimerPaused(false);
+    pauseStartTimeRef.current = null;
     setPatientAgeCategory(null);
     setReversibleCauses(AppConstants.reversibleCausesTemplate());
     setPostROSCTasks(AppConstants.postROSCTasksTemplate());
