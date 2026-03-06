@@ -876,21 +876,59 @@ const NewbornLifeSupport: React.FC<NewbornLifeSupportProps> = ({ onBack }) => {
       {arrestState !== NLSArrestState.Pending && (
         <div className="fixed bottom-0 left-0 right-0 p-3 pb-[72px] bg-black/80 backdrop-blur-md border-t border-gray-800 z-10">
           <div className="flex space-x-3">
-            <button onClick={undo} disabled={undoStack.length === 0}
-              className="flex-1 py-3 rounded-2xl bg-blue-600 text-white font-bold flex items-center justify-center space-x-2 active:scale-95 transition-transform disabled:opacity-40">
-              <Undo size={18} />
-              <span>Undo</span>
-            </button>
-            <button onClick={() => setShowSummary(true)}
-              className="flex-1 py-3 rounded-2xl bg-purple-600 text-white font-bold flex items-center justify-center space-x-2 active:scale-95 transition-transform">
-              <Clipboard size={18} />
-              <span>Summary</span>
-            </button>
-            <button onClick={() => setShowReset(true)}
-              className="flex-1 py-3 rounded-2xl bg-red-600 text-white font-bold flex items-center justify-center space-x-2 active:scale-95 transition-transform">
-              <Square size={18} />
-              <span>Stop</span>
-            </button>
+            {isStopped ? (
+              <>
+                <button onClick={() => {
+                  setIsStopped(false);
+                  // Resume timer by offsetting startTime for paused duration
+                  if (pauseStartRef.current && startTimeRef.current) {
+                    const pausedMs = Date.now() - pauseStartRef.current.getTime();
+                    startTimeRef.current = new Date(startTimeRef.current.getTime() + pausedMs);
+                  }
+                  pauseStartRef.current = null;
+                  logEvent("Timer Resumed");
+                }}
+                  className="flex-1 py-3 rounded-2xl bg-green-600 text-white font-bold flex items-center justify-center space-x-2 active:scale-95 transition-transform">
+                  <Heart size={18} />
+                  <span>Resume</span>
+                </button>
+                <button onClick={() => setShowSummary(true)}
+                  className="flex-1 py-3 rounded-2xl bg-purple-600 text-white font-bold flex items-center justify-center space-x-2 active:scale-95 transition-transform">
+                  <Clipboard size={18} />
+                  <span>Summary</span>
+                </button>
+                <button onClick={() => setShowReset(true)}
+                  className="flex-1 py-3 rounded-2xl bg-red-600 text-white font-bold flex items-center justify-center space-x-2 active:scale-95 transition-transform">
+                  <RotateCw size={18} />
+                  <span>Reset</span>
+                </button>
+              </>
+            ) : (
+              <>
+                <button onClick={undo} disabled={undoStack.length === 0}
+                  className="flex-1 py-3 rounded-2xl bg-blue-600 text-white font-bold flex items-center justify-center space-x-2 active:scale-95 transition-transform disabled:opacity-40">
+                  <Undo size={18} />
+                  <span>Undo</span>
+                </button>
+                <button onClick={() => setShowSummary(true)}
+                  className="flex-1 py-3 rounded-2xl bg-purple-600 text-white font-bold flex items-center justify-center space-x-2 active:scale-95 transition-transform">
+                  <Clipboard size={18} />
+                  <span>Summary</span>
+                </button>
+                <button onClick={() => {
+                  setIsStopped(true);
+                  pauseStartRef.current = new Date();
+                  if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
+                  nlsMetronome.stop();
+                  setMetronomeOn(false);
+                  logEvent("Timer Paused");
+                }}
+                  className="flex-1 py-3 rounded-2xl bg-red-600 text-white font-bold flex items-center justify-center space-x-2 active:scale-95 transition-transform">
+                  <Square size={18} />
+                  <span>Stop</span>
+                </button>
+              </>
+            )}
           </div>
         </div>
       )}

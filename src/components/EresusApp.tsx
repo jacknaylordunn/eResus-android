@@ -26,7 +26,8 @@ import {
   Heart, 
   Book, // Replaced BookClosed
   Settings, 
-  RotateCw, // Replaced ArrowClockwise
+  RotateCw,
+  Square,
   Undo, 
   Clipboard, 
   Activity, // Replaced WavePulse
