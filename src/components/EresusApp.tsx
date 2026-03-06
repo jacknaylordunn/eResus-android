@@ -26,7 +26,8 @@ import {
   Heart, 
   Book, // Replaced BookClosed
   Settings, 
-  RotateCw, // Replaced ArrowClockwise
+  RotateCw,
+  Square,
   Undo, 
   Clipboard, 
   Activity, // Replaced WavePulse
@@ -661,6 +662,8 @@ const useArrestViewModel = () => {
   const savedArrestStateRef = useRef<ArrestState | null>(hasRecoverableArrest ? s.arrestState : null);
   const [undoHistory, setUndoHistory] = useState<UndoState[]>([]);
   const [showRecoveryPrompt, setShowRecoveryPrompt] = useState(hasRecoverableArrest);
+  const [isTimerPaused, setIsTimerPaused] = useState(false);
+  const pauseStartTimeRef = useRef<Date | null>(null);
 
   // --- Computed Properties ---
   const totalArrestTime = useMemo(() => masterTime + timeOffset, [masterTime, timeOffset]);
@@ -861,15 +864,35 @@ const useArrestViewModel = () => {
     setPatientAgeCategory(lastState.patientAgeCategory);
   };
   
+  const pauseArrest = () => {
+    saveUndoState();
+    setIsTimerPaused(true);
+    pauseStartTimeRef.current = new Date();
+    stopTimer();
+    logEvent("Arrest Timer Paused", EventType.Status);
+  };
+
+  const resumeArrest = () => {
+    saveUndoState();
+    setIsTimerPaused(false);
+    if (pauseStartTimeRef.current && startTimeRef.current) {
+      const pausedDuration = (Date.now() - pauseStartTimeRef.current.getTime());
+      startTimeRef.current = new Date(startTimeRef.current.getTime() + pausedDuration);
+    }
+    pauseStartTimeRef.current = null;
+    startTimer();
+    logEvent("Arrest Timer Resumed", EventType.Status);
+  };
+
   // --- Timer Lifecycle ---
   useEffect(() => {
-    if (arrestState === ArrestState.Active || arrestState === ArrestState.Rosc) {
+    if ((arrestState === ArrestState.Active || arrestState === ArrestState.Rosc) && !isTimerPaused) {
       startTimer();
     } else {
       stopTimer();
     }
-    return stopTimer; // Cleanup on unmount or when arrestState changes
-  }, [arrestState]); // ONLY depends on arrestState
+    return stopTimer;
+  }, [arrestState, isTimerPaused]);
   
   // Update CPR Time based on masterTime
   useEffect(() => {
@@ -1130,6 +1153,8 @@ ${[...events].reverse().map(e => `[${TimeFormatter.format(e.timestamp)}] ${e.mes
     shockCountForAmiodarone1Ref.current = null;
     startTimeRef.current = null;
     setUndoHistory([]);
+    setIsTimerPaused(false);
+    pauseStartTimeRef.current = null;
     setPatientAgeCategory(null);
     setReversibleCauses(AppConstants.reversibleCausesTemplate());
     setPostROSCTasks(AppConstants.postROSCTasksTemplate());
@@ -1142,7 +1167,7 @@ ${[...events].reverse().map(e => `[${TimeFormatter.format(e.timestamp)}] ${e.mes
     arrestState, masterTime, cprTime, timeOffset, uiState, events,
     shockCount, adrenalineCount, amiodaroneCount, lidocaineCount,
     airwayPlaced, antiarrhythmicGiven, reversibleCauses, postROSCTasks,
-    postMortemTasks, patientAgeCategory,
+    postMortemTasks, patientAgeCategory, isTimerPaused,
     
     // Computed
     totalArrestTime, canUndo, isAdrenalineAvailable, isAmiodaroneAvailable,
@@ -1157,7 +1182,7 @@ ${[...events].reverse().map(e => `[${TimeFormatter.format(e.timestamp)}] ${e.mes
     logAdrenaline, logAmiodarone, logLidocaine, logOtherDrug, logAirwayPlaced,
     logEtco2, achieveROSC, endArrest, reArrest, addTimeOffset,
     toggleChecklistItemCompletion, setHypothermiaStatus, setPatientAgeCategory,
-    performReset, undo, copySummaryToClipboard
+    performReset, undo, copySummaryToClipboard, pauseArrest, resumeArrest
   };
 };
 
@@ -2161,35 +2186,65 @@ const BottomControlsView: React.FC<{
   onShowSummary: () => void;
   onShowReset: () => void;
 }> = ({ onShowSummary, onShowReset }) => {
-  const { undo, canUndo } = useArrest();
+  const { undo, canUndo, isTimerPaused, pauseArrest, resumeArrest } = useArrest();
   
   return (
     <div className="fixed bottom-0 left-0 right-0 p-3 pb-[72px] bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border-t border-gray-200 dark:border-gray-700 z-10">
       <div className="flex space-x-3">
-        <ActionButton
-          title="Undo"
-          icon={<Undo size={18} />}
-          backgroundColor="bg-gray-200 dark:bg-gray-700"
-          foregroundColor="text-gray-800 dark:text-gray-200"
-          height="h-12"
-          onClick={undo}
-          disabled={!canUndo}
-        />
-        <ActionButton
-          title="Summary"
-          backgroundColor="bg-blue-600"
-          foregroundColor="text-white"
-          height="h-12"
-          onClick={onShowSummary}
-        />
-        <ActionButton
-          title="Reset"
-          icon={<RotateCw size={18} />}
-          backgroundColor="bg-red-600"
-          foregroundColor="text-white"
-          height="h-12"
-          onClick={onShowReset}
-        />
+        {isTimerPaused ? (
+          <>
+            <ActionButton
+              title="Resume"
+              icon={<Heart size={18} />}
+              backgroundColor="bg-green-600"
+              foregroundColor="text-white"
+              height="h-12"
+              onClick={resumeArrest}
+            />
+            <ActionButton
+              title="Summary"
+              backgroundColor="bg-blue-600"
+              foregroundColor="text-white"
+              height="h-12"
+              onClick={onShowSummary}
+            />
+            <ActionButton
+              title="Reset"
+              icon={<RotateCw size={18} />}
+              backgroundColor="bg-red-600"
+              foregroundColor="text-white"
+              height="h-12"
+              onClick={onShowReset}
+            />
+          </>
+        ) : (
+          <>
+            <ActionButton
+              title="Undo"
+              icon={<Undo size={18} />}
+              backgroundColor="bg-gray-200 dark:bg-gray-700"
+              foregroundColor="text-gray-800 dark:text-gray-200"
+              height="h-12"
+              onClick={undo}
+              disabled={!canUndo}
+            />
+            <ActionButton
+              title="Summary"
+              backgroundColor="bg-blue-600"
+              foregroundColor="text-white"
+              height="h-12"
+              onClick={onShowSummary}
+            />
+            <ActionButton
+              title="Stop"
+              icon={<Square size={18} />}
+              backgroundColor="bg-red-600"
+              foregroundColor="text-white"
+              height="h-12"
+              onClick={pauseArrest}
+            />
+          </>
+        )}
       </div>
     </div>
   );
