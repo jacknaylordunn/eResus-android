@@ -661,6 +661,8 @@ const useArrestViewModel = () => {
   const savedArrestStateRef = useRef<ArrestState | null>(hasRecoverableArrest ? s.arrestState : null);
   const [undoHistory, setUndoHistory] = useState<UndoState[]>([]);
   const [showRecoveryPrompt, setShowRecoveryPrompt] = useState(hasRecoverableArrest);
+  const [isTimerPaused, setIsTimerPaused] = useState(false);
+  const pauseStartTimeRef = useRef<Date | null>(null);
 
   // --- Computed Properties ---
   const totalArrestTime = useMemo(() => masterTime + timeOffset, [masterTime, timeOffset]);
@@ -861,15 +863,35 @@ const useArrestViewModel = () => {
     setPatientAgeCategory(lastState.patientAgeCategory);
   };
   
+  const pauseArrest = () => {
+    saveUndoState();
+    setIsTimerPaused(true);
+    pauseStartTimeRef.current = new Date();
+    stopTimer();
+    logEvent("Arrest Timer Paused", EventType.Status);
+  };
+
+  const resumeArrest = () => {
+    saveUndoState();
+    setIsTimerPaused(false);
+    if (pauseStartTimeRef.current && startTimeRef.current) {
+      const pausedDuration = (Date.now() - pauseStartTimeRef.current.getTime());
+      startTimeRef.current = new Date(startTimeRef.current.getTime() + pausedDuration);
+    }
+    pauseStartTimeRef.current = null;
+    startTimer();
+    logEvent("Arrest Timer Resumed", EventType.Status);
+  };
+
   // --- Timer Lifecycle ---
   useEffect(() => {
-    if (arrestState === ArrestState.Active || arrestState === ArrestState.Rosc) {
+    if ((arrestState === ArrestState.Active || arrestState === ArrestState.Rosc) && !isTimerPaused) {
       startTimer();
     } else {
       stopTimer();
     }
-    return stopTimer; // Cleanup on unmount or when arrestState changes
-  }, [arrestState]); // ONLY depends on arrestState
+    return stopTimer;
+  }, [arrestState, isTimerPaused]);
   
   // Update CPR Time based on masterTime
   useEffect(() => {
