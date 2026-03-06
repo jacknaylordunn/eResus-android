@@ -1164,7 +1164,7 @@ ${[...events].reverse().map(e => `[${TimeFormatter.format(e.timestamp)}] ${e.mes
     arrestState, masterTime, cprTime, timeOffset, uiState, events,
     shockCount, adrenalineCount, amiodaroneCount, lidocaineCount,
     airwayPlaced, antiarrhythmicGiven, reversibleCauses, postROSCTasks,
-    postMortemTasks, patientAgeCategory,
+    postMortemTasks, patientAgeCategory, isTimerPaused,
     
     // Computed
     totalArrestTime, canUndo, isAdrenalineAvailable, isAmiodaroneAvailable,
@@ -1179,7 +1179,7 @@ ${[...events].reverse().map(e => `[${TimeFormatter.format(e.timestamp)}] ${e.mes
     logAdrenaline, logAmiodarone, logLidocaine, logOtherDrug, logAirwayPlaced,
     logEtco2, achieveROSC, endArrest, reArrest, addTimeOffset,
     toggleChecklistItemCompletion, setHypothermiaStatus, setPatientAgeCategory,
-    performReset, undo, copySummaryToClipboard
+    performReset, undo, copySummaryToClipboard, pauseArrest, resumeArrest
   };
 };
 
@@ -2183,35 +2183,65 @@ const BottomControlsView: React.FC<{
   onShowSummary: () => void;
   onShowReset: () => void;
 }> = ({ onShowSummary, onShowReset }) => {
-  const { undo, canUndo } = useArrest();
+  const { undo, canUndo, isTimerPaused, pauseArrest, resumeArrest } = useArrest();
   
   return (
     <div className="fixed bottom-0 left-0 right-0 p-3 pb-[72px] bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border-t border-gray-200 dark:border-gray-700 z-10">
       <div className="flex space-x-3">
-        <ActionButton
-          title="Undo"
-          icon={<Undo size={18} />}
-          backgroundColor="bg-gray-200 dark:bg-gray-700"
-          foregroundColor="text-gray-800 dark:text-gray-200"
-          height="h-12"
-          onClick={undo}
-          disabled={!canUndo}
-        />
-        <ActionButton
-          title="Summary"
-          backgroundColor="bg-blue-600"
-          foregroundColor="text-white"
-          height="h-12"
-          onClick={onShowSummary}
-        />
-        <ActionButton
-          title="Reset"
-          icon={<RotateCw size={18} />}
-          backgroundColor="bg-red-600"
-          foregroundColor="text-white"
-          height="h-12"
-          onClick={onShowReset}
-        />
+        {isTimerPaused ? (
+          <>
+            <ActionButton
+              title="Resume"
+              icon={<Heart size={18} />}
+              backgroundColor="bg-green-600"
+              foregroundColor="text-white"
+              height="h-12"
+              onClick={resumeArrest}
+            />
+            <ActionButton
+              title="Summary"
+              backgroundColor="bg-blue-600"
+              foregroundColor="text-white"
+              height="h-12"
+              onClick={onShowSummary}
+            />
+            <ActionButton
+              title="Reset"
+              icon={<RotateCw size={18} />}
+              backgroundColor="bg-red-600"
+              foregroundColor="text-white"
+              height="h-12"
+              onClick={onShowReset}
+            />
+          </>
+        ) : (
+          <>
+            <ActionButton
+              title="Undo"
+              icon={<Undo size={18} />}
+              backgroundColor="bg-gray-200 dark:bg-gray-700"
+              foregroundColor="text-gray-800 dark:text-gray-200"
+              height="h-12"
+              onClick={undo}
+              disabled={!canUndo}
+            />
+            <ActionButton
+              title="Summary"
+              backgroundColor="bg-blue-600"
+              foregroundColor="text-white"
+              height="h-12"
+              onClick={onShowSummary}
+            />
+            <ActionButton
+              title="Stop"
+              icon={<Square size={18} />}
+              backgroundColor="bg-red-600"
+              foregroundColor="text-white"
+              height="h-12"
+              onClick={pauseArrest}
+            />
+          </>
+        )}
       </div>
     </div>
   );
