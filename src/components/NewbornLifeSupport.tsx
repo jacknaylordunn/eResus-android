@@ -237,7 +237,7 @@ const NewbornLifeSupport: React.FC<NewbornLifeSupportProps> = ({ onBack }) => {
 
   // --- Timer ---
   useEffect(() => {
-    if (arrestState === NLSArrestState.Active && startTimeRef.current) {
+    if (arrestState === NLSArrestState.Active && startTimeRef.current && !isStopped) {
       timerRef.current = setInterval(() => {
         if (!startTimeRef.current) return;
         const newMaster = (Date.now() - startTimeRef.current.getTime()) / 1000;
@@ -255,7 +255,7 @@ const NewbornLifeSupport: React.FC<NewbornLifeSupportProps> = ({ onBack }) => {
       }, 1000);
     }
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
-  }, [arrestState, timeOffset, nlsCycleDuration]);
+  }, [arrestState, timeOffset, nlsCycleDuration, isStopped]);
 
   // --- Undo ---
   const saveUndo = () => {
