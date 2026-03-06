@@ -210,6 +210,10 @@ const NewbornLifeSupport: React.FC<NewbornLifeSupportProps> = ({ onBack }) => {
   const [showConfirmBack, setShowConfirmBack] = useState(false);
   const [showRecoveryPrompt, setShowRecoveryPrompt] = useState(hasRecoverableSession);
 
+  // Stop/Pause
+  const [isStopped, setIsStopped] = useState(false);
+  const pauseStartRef = useRef<Date | null>(null);
+
   // Computed
   const totalArrestTime = masterTime + timeOffset;
 
