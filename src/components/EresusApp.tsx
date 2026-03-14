@@ -1229,6 +1229,11 @@ ${[...events].reverse().map(e => `[${TimeFormatter.format(e.timestamp)}] ${e.mes
     setReversibleCauses(AppConstants.reversibleCausesTemplate());
     setPostROSCTasks(AppConstants.postROSCTasksTemplate());
     setPostMortemTasks(AppConstants.postMortemTasksTemplate());
+    setHideAdrenalinePrompt(false);
+    setHideAmiodaronePrompt(false);
+    setLastRhythmNonShockable(false);
+    setAirwayAdjunct(null);
+    setRoscTime(null);
     localStorage.removeItem(ARREST_SESSION_KEY);
   };
 
@@ -1238,6 +1243,8 @@ ${[...events].reverse().map(e => `[${TimeFormatter.format(e.timestamp)}] ${e.mes
     shockCount, adrenalineCount, amiodaroneCount, lidocaineCount,
     airwayPlaced, antiarrhythmicGiven, reversibleCauses, postROSCTasks,
     postMortemTasks, patientAgeCategory, isTimerPaused,
+    hideAdrenalinePrompt, hideAmiodaronePrompt, roscTime, airwayAdjunct,
+    startTime: startTimeRef.current,
     
     // Computed
     totalArrestTime, canUndo, isAdrenalineAvailable, isAmiodaroneAvailable,
@@ -1249,10 +1256,12 @@ ${[...events].reverse().map(e => `[${TimeFormatter.format(e.timestamp)}] ${e.mes
     
     // Actions
     startArrest, analyseRhythm, logRhythm, deliverShock, resumeCPR,
-    logAdrenaline, logAmiodarone, logLidocaine, logOtherDrug, logAirwayPlaced,
+    logAdrenaline, logAmiodarone, logLidocaine, logOtherDrug,
+    logAirwayPlaced: logAirwayPlacedFn,
     logEtco2, achieveROSC, endArrest, reArrest, addTimeOffset,
     toggleChecklistItemCompletion, setHypothermiaStatus, setPatientAgeCategory,
-    performReset, undo, copySummaryToClipboard, pauseArrest, resumeArrest
+    performReset, undo, copySummaryToClipboard, pauseArrest, resumeArrest,
+    setHideAdrenalinePrompt, setHideAmiodaronePrompt,
   };
 };
 
