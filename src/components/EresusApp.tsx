@@ -1979,7 +1979,7 @@ const ActiveArrestContentView: React.FC<{
   const {
     cprTime, uiState, timeUntilAdrenaline, shouldShowAdrenalinePrompt,
     shouldShowAmiodaroneFirstDosePrompt, shouldShowAmiodaroneReminder,
-    events, reversibleCauses
+    events, reversibleCauses, isTimerPaused, setHideAdrenalinePrompt, setHideAmiodaronePrompt
   } = useArrest();
   const { metronomeBPM } = useSettings();
   const [isMetronomeOn, setIsMetronomeOn] = useState(metronomeService.isPlaying);
@@ -1990,7 +1990,6 @@ const ActiveArrestContentView: React.FC<{
   };
   
   useEffect(() => {
-    // Sync metronome state if it's stopped externally or component unmounts
     return () => {
       metronomeService.stop();
       setIsMetronomeOn(false);
@@ -1998,7 +1997,7 @@ const ActiveArrestContentView: React.FC<{
   }, []);
 
   return (
-    <div className="p-4 space-y-6 pb-36">
+    <div className={`p-4 space-y-6 pb-36 transition-opacity ${isTimerPaused ? 'opacity-50 pointer-events-none' : ''}`}>
       <div className="relative flex justify-center">
         <CPRTimerView />
         <button
@@ -2011,18 +2010,16 @@ const ActiveArrestContentView: React.FC<{
         </button>
       </div>
 
-      {/* --- Timers & Prompts --- */}
       {timeUntilAdrenaline !== null && timeUntilAdrenaline > 0 && (
         <AdrenalineTimerView timeRemaining={timeUntilAdrenaline} />
       )}
       {timeUntilAdrenaline !== null && timeUntilAdrenaline <= 0 && (
         <AdrenalineDueWarning onClick={props.onLogAdrenaline} />
       )}
-      {shouldShowAdrenalinePrompt && <AdrenalinePromptView onClick={props.onLogAdrenaline} />}
-      {shouldShowAmiodaroneFirstDosePrompt && <AmiodaronePromptView onClick={props.onLogAmiodarone} />}
-      {shouldShowAmiodaroneReminder && <AmiodaroneReminderView onClick={props.onLogAmiodarone} />}
+      {shouldShowAdrenalinePrompt && <AdrenalinePromptView onClick={props.onLogAdrenaline} onDismiss={() => setHideAdrenalinePrompt(true)} />}
+      {shouldShowAmiodaroneFirstDosePrompt && <AmiodaronePromptView onClick={props.onLogAmiodarone} onDismiss={() => setHideAmiodaronePrompt(true)} />}
+      {shouldShowAmiodaroneReminder && <AmiodaroneReminderView onClick={props.onLogAmiodarone} onDismiss={() => setHideAmiodaronePrompt(true)} />}
 
-      {/* --- Action Grids --- */}
       <ActionGridView {...props} />
       
       <AlgorithmGridView onShowPdf={props.onShowPdf} />
