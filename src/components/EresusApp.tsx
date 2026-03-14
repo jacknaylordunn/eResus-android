@@ -685,6 +685,13 @@ const useArrestViewModel = () => {
   const [showRecoveryPrompt, setShowRecoveryPrompt] = useState(hasRecoverableArrest);
   const [isTimerPaused, setIsTimerPaused] = useState(false);
   const pauseStartTimeRef = useRef<Date | null>(null);
+  
+  // iOS ViewModel parity state
+  const [hideAdrenalinePrompt, setHideAdrenalinePrompt] = useState(false);
+  const [hideAmiodaronePrompt, setHideAmiodaronePrompt] = useState(false);
+  const [lastRhythmNonShockable, setLastRhythmNonShockable] = useState(false);
+  const [roscTime, setRoscTime] = useState<number | null>(null);
+  const [airwayAdjunct, setAirwayAdjunct] = useState<AirwayAdjunctType | null>(null);
 
   // --- Computed Properties ---
   const totalArrestTime = useMemo(() => masterTime + timeOffset, [masterTime, timeOffset]);
