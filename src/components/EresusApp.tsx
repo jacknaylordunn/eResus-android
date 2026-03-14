@@ -998,6 +998,8 @@ const useArrestViewModel = () => {
 
   const analyseRhythm = () => {
     saveUndoState();
+    setHideAdrenalinePrompt(false);
+    setLastRhythmNonShockable(false);
     setUiState(UIState.Analyzing);
     logEvent("Rhythm analysis. Pausing CPR.", EventType.Analysis);
   };
@@ -1005,6 +1007,8 @@ const useArrestViewModel = () => {
   const logRhythm = (rhythm: string, isShockable: boolean) => {
     saveUndoState();
     logEvent(`Rhythm is ${rhythm}`, EventType.Rhythm);
+    setLastRhythmNonShockable(!isShockable);
+    if (!isShockable) setHideAdrenalinePrompt(false);
     if (isShockable) {
       setUiState(UIState.ShockAdvised);
     } else {
@@ -1015,19 +1019,19 @@ const useArrestViewModel = () => {
   const deliverShock = () => {
     saveUndoState();
     setShockCount(c => c + 1);
+    setHideAdrenalinePrompt(false);
+    setHideAmiodaronePrompt(false);
     logEvent(`Shock ${shockCount + 1} Delivered`, EventType.Shock);
     resumeCPR();
   };
 
   const resumeCPR = () => {
     if (!startTimeRef.current) return;
-        
-    // Calculate the *actual* current time, not the stale state one
     const currentMasterTime = (Date.now() - startTimeRef.current.getTime()) / 1000;
     const currentTotalArrestTime = currentMasterTime + timeOffset;
 
     setUiState(UIState.Default);
-    cprCycleStartTimeRef.current = currentTotalArrestTime; // Use the fresh value
+    cprCycleStartTimeRef.current = currentTotalArrestTime;
     setCprTime(cprCycleDuration);
     logEvent("Resuming CPR.", EventType.Cpr);
   };
@@ -1036,6 +1040,8 @@ const useArrestViewModel = () => {
     saveUndoState();
     setAdrenalineCount(c => c + 1);
     lastAdrenalineTimeRef.current = totalArrestTime;
+    setLastRhythmNonShockable(false);
+    setHideAdrenalinePrompt(false);
     const dosageText = (showDosagePrompts && dosage) ? ` (${dosage})` : "";
     logEvent(`Adrenaline${dosageText} Given - Dose ${adrenalineCount + 1}`, EventType.Drug);
   };
@@ -1047,6 +1053,7 @@ const useArrestViewModel = () => {
     if (amiodaroneCount === 0) {
       shockCountForAmiodarone1Ref.current = shockCount;
     }
+    setHideAmiodaronePrompt(false);
     const dosageText = (showDosagePrompts && dosage) ? ` (${dosage})` : "";
     logEvent(`Amiodarone${dosageText} Given - Dose ${amiodaroneCount + 1}`, EventType.Drug);
   };
@@ -1065,10 +1072,15 @@ const useArrestViewModel = () => {
     logEvent(`${drug}${dosageText} Given`, EventType.Drug);
   };
   
-  const logAirwayPlaced = () => {
+  const logAirwayPlacedFn = (type?: AirwayAdjunctType) => {
     saveUndoState();
     setAirwayPlaced(true);
-    logEvent("Advanced Airway Placed", EventType.Airway);
+    if (type) {
+      setAirwayAdjunct(type);
+      logEvent(`Advanced Airway Placed - ${getAirwayAdjunctDisplayName(type)}`, EventType.Airway);
+    } else {
+      logEvent("Advanced Airway Placed", EventType.Airway);
+    }
   };
 
   const logEtco2 = (value: string) => {
@@ -1082,6 +1094,7 @@ const useArrestViewModel = () => {
     saveUndoState();
     setArrestState(ArrestState.Rosc);
     setUiState(UIState.Default);
+    setRoscTime(totalArrestTime);
     logEvent("Return of Spontaneous Circulation (ROSC)", EventType.Status);
   };
 
