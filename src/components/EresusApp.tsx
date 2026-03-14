@@ -872,7 +872,10 @@ const useArrestViewModel = () => {
       antiarrhythmicGiven,
       shockCountForAmiodarone1: shockCountForAmiodarone1Ref.current,
       airwayPlaced, reversibleCauses, postROSCTasks, postMortemTasks,
-      startTime: startTimeRef.current, uiState, patientAgeCategory
+      startTime: startTimeRef.current, uiState, patientAgeCategory,
+      hideAdrenalinePrompt, hideAmiodaronePrompt, lastRhythmNonShockable,
+      airwayAdjunct, roscTime, isTimerPaused,
+      pauseStartTime: pauseStartTimeRef.current,
     };
     setUndoHistory(prev => [...prev, currentState]);
   };
@@ -902,6 +905,20 @@ const useArrestViewModel = () => {
     startTimeRef.current = lastState.startTime;
     setUiState(lastState.uiState);
     setPatientAgeCategory(lastState.patientAgeCategory);
+    setHideAdrenalinePrompt(lastState.hideAdrenalinePrompt ?? false);
+    setHideAmiodaronePrompt(lastState.hideAmiodaronePrompt ?? false);
+    setLastRhythmNonShockable(lastState.lastRhythmNonShockable ?? false);
+    setAirwayAdjunct(lastState.airwayAdjunct ?? null);
+    setRoscTime(lastState.roscTime ?? null);
+    setIsTimerPaused(lastState.isTimerPaused ?? false);
+    pauseStartTimeRef.current = lastState.pauseStartTime ?? null;
+    
+    // Restart timer if needed
+    if ((lastState.arrestState === ArrestState.Active || lastState.arrestState === ArrestState.Rosc) && !lastState.isTimerPaused) {
+      startTimer();
+    } else {
+      stopTimer();
+    }
   };
   
   const pauseArrest = () => {
