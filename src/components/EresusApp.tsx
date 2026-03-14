@@ -1806,23 +1806,23 @@ const HeaderView: React.FC = () => {
   );
 };
 
-const CountersView: React.FC = () => {
+const CountersView: React.FC<{ isDue?: boolean }> = ({ isDue = false }) => {
   const { shockCount, adrenalineCount, amiodaroneCount, lidocaineCount } = useArrest();
   
   return (
-    <div className="flex justify-around pt-2 border-t border-gray-200 dark:border-gray-700">
-      <CounterItem label="Shocks" value={shockCount} color="text-orange-500" />
-      <CounterItem label="Adrenaline" value={adrenalineCount} color="text-pink-500" />
-      <CounterItem label="Amiodarone" value={amiodaroneCount} color="text-purple-500" />
-      <CounterItem label="Lidocaine" value={lidocaineCount} color="text-indigo-500" />
+    <div className={`flex justify-around pt-2 ${isDue ? 'border-t border-white/30' : 'border-t border-gray-200 dark:border-gray-700'}`}>
+      <CounterItem label="Shocks" value={shockCount} color={isDue ? 'text-white' : 'text-orange-500'} isDue={isDue} />
+      <CounterItem label="Adrenaline" value={adrenalineCount} color={isDue ? 'text-white' : 'text-pink-500'} isDue={isDue} />
+      <CounterItem label="Amiodarone" value={amiodaroneCount} color={isDue ? 'text-white' : 'text-purple-500'} isDue={isDue} />
+      <CounterItem label="Lidocaine" value={lidocaineCount} color={isDue ? 'text-white' : 'text-indigo-500'} isDue={isDue} />
     </div>
   );
 };
 
-const CounterItem: React.FC<{ label: string; value: number; color: string; }> = ({ label, value, color }) => (
+const CounterItem: React.FC<{ label: string; value: number; color: string; isDue?: boolean }> = ({ label, value, color, isDue = false }) => (
   <div className={`flex flex-col items-center ${color}`}>
     <span className="font-mono font-bold text-lg">{value}</span>
-    <span className="text-[10px] font-semibold uppercase text-gray-500 dark:text-gray-400">{label}</span>
+    <span className={`text-[10px] font-semibold uppercase ${isDue ? 'text-white/80' : 'text-gray-500 dark:text-gray-400'}`}>{label}</span>
   </div>
 );
 
