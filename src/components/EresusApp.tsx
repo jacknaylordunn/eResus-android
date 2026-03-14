@@ -723,16 +723,28 @@ const useArrestViewModel = () => {
   const shouldShowAmiodaroneReminder = useMemo(() => {
     const shockCountDose1 = shockCountForAmiodarone1Ref.current;
     if (shockCountDose1 === null) return false;
-    return amiodaroneCount === 1 && shockCount >= shockCountDose1 + 2;
-  }, [amiodaroneCount, shockCount]);
+    return amiodaroneCount === 1 && shockCount >= shockCountDose1 + 2 && !hideAmiodaronePrompt;
+  }, [amiodaroneCount, shockCount, hideAmiodaronePrompt]);
   
   const shouldShowAmiodaroneFirstDosePrompt = useMemo(() => {
-      return isAmiodaroneAvailable && amiodaroneCount === 0;
-  }, [isAmiodaroneAvailable, amiodaroneCount]);
+      return isAmiodaroneAvailable && amiodaroneCount === 0 && !hideAmiodaronePrompt;
+  }, [isAmiodaroneAvailable, amiodaroneCount, hideAmiodaronePrompt]);
 
   const shouldShowAdrenalinePrompt = useMemo(() => {
-    return shockCount >= 3 && adrenalineCount === 0 && isAdrenalineAvailable;
-  }, [shockCount, adrenalineCount, isAdrenalineAvailable]);
+    if (!isAdrenalineAvailable || hideAdrenalinePrompt) return false;
+    
+    // Timer-based prompt for subsequent doses
+    if (timeUntilAdrenaline !== null && timeUntilAdrenaline <= 0) return true;
+    
+    // Initial dose logic
+    if (adrenalineCount === 0) {
+      if (shockCount >= 3) return true;
+      if (lastRhythmNonShockable) return true;
+    }
+    
+    return false;
+  }, [shockCount, adrenalineCount, isAdrenalineAvailable, hideAdrenalinePrompt, 
+      timeUntilAdrenaline, lastRhythmNonShockable]);
 
   // --- Session Persistence ---
   // Save session to localStorage on every meaningful state change
