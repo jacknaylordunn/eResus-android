@@ -1152,13 +1152,16 @@ const useArrestViewModel = () => {
   };
   
   const copySummaryToClipboard = () => {
-    const summaryText = `
-eResus Event Summary
+    const startText = startTimeRef.current ? startTimeRef.current.toLocaleTimeString() : "Unknown";
+    const roscText = roscTime !== null ? `ROSC at: ${TimeFormatter.format(roscTime)} (from start)` : "ROSC: Not achieved";
+    const summaryText = `eResus Event Summary
+Start Time (clock): ${startText}
 Total Arrest Time: ${TimeFormatter.format(totalArrestTime)}
+Shocks: ${shockCount}  |  Adrenaline: ${adrenalineCount}  |  Amiodarone: ${amiodaroneCount}  |  Lidocaine: ${lidocaineCount}
+${roscText}
 
 --- Event Log ---
-${[...events].reverse().map(e => `[${TimeFormatter.format(e.timestamp)}] ${e.message}`).join('\n')}
-    `;
+${[...events].sort((a, b) => a.timestamp - b.timestamp).map(e => `[${TimeFormatter.format(e.timestamp)}] ${e.message}`).join('\n')}`;
     navigator.clipboard.writeText(summaryText.trim())
       .then(() => HapticManager.notification('success'))
       .catch(err => console.error("Failed to copy summary: ", err));
