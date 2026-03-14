@@ -675,7 +675,7 @@ const useArrestViewModel = () => {
   const [patientAgeCategory, setPatientAgeCategory] = useState<PatientAgeCategory | null>(s?.patientAgeCategory ?? null);
 
   // --- Private State Properties ---
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const startTimeRef = useRef<Date | null>(s?.startTime ? new Date(s.startTime) : null);
   const cprCycleStartTimeRef = useRef<number>(s?.cprCycleStartTime ?? 0);
   const lastAdrenalineTimeRef = useRef<number | null>(s?.lastAdrenalineTime ?? null);
