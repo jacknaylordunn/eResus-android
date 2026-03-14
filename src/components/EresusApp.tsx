@@ -179,7 +179,7 @@ export interface UndoState {
   masterTime: number;
   cprTime: number;
   timeOffset: number;
-  events: Event[]; // Store events directly
+  events: Event[];
   shockCount: number;
   adrenalineCount: number;
   amiodaroneCount: number;
@@ -194,6 +194,13 @@ export interface UndoState {
   startTime: Date | null;
   uiState: UIState;
   patientAgeCategory: PatientAgeCategory | null;
+  hideAdrenalinePrompt?: boolean;
+  hideAmiodaronePrompt?: boolean;
+  lastRhythmNonShockable?: boolean;
+  airwayAdjunct?: AirwayAdjunctType | null;
+  roscTime?: number | null;
+  isTimerPaused?: boolean;
+  pauseStartTime?: Date | null;
 }
 
 export interface PDFIdentifiable {
