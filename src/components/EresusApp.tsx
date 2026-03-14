@@ -131,6 +131,20 @@ export enum HypothermiaStatus {
   Normothermic = "normothermic",
 }
 
+export enum AirwayAdjunctType {
+  SGA = "sga",
+  ETT = "ett",
+  Unspecified = "unspecified",
+}
+
+export const getAirwayAdjunctDisplayName = (type: AirwayAdjunctType): string => {
+  switch (type) {
+    case AirwayAdjunctType.SGA: return "Supraglottic Airway (i-Gel)";
+    case AirwayAdjunctType.ETT: return "Endotracheal Tube";
+    case AirwayAdjunctType.Unspecified: return "Unspecified";
+  }
+};
+
 export enum AppearanceMode {
   System = "System",
   Light = "Light",
