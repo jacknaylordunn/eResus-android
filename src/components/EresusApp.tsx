@@ -1726,7 +1726,7 @@ const ActionButton: React.FC<ActionButtonProps> = ({
 
 // --- Header & Timers ---
 const HeaderView: React.FC = () => {
-  const { arrestState, masterTime, timeOffset, addTimeOffset, cprTime, uiState } = useArrest();
+  const { arrestState, masterTime, timeOffset, addTimeOffset, cprTime, uiState, isTimerPaused, analyseRhythm } = useArrest();
   
   const isRhythmCheckDue = arrestState === ArrestState.Active && uiState === UIState.Default && cprTime <= 0;
   
@@ -1737,48 +1737,71 @@ const HeaderView: React.FC = () => {
     [ArrestState.Ended]: { text: "DECEASED", color: "bg-black" },
   };
 
+  const handleHeaderTap = () => {
+    if (isRhythmCheckDue && !isTimerPaused) {
+      analyseRhythm();
+    }
+  };
+
+  const headerBg = isTimerPaused 
+    ? 'bg-orange-100 dark:bg-orange-900/30' 
+    : isRhythmCheckDue 
+      ? 'bg-red-600' 
+      : 'bg-white dark:bg-gray-800';
+
   return (
-    <div className={`p-4 shadow-md transition-colors duration-300 ${
-      isRhythmCheckDue 
-        ? 'bg-red-600 animate-pulse' 
-        : 'bg-white dark:bg-gray-800'
-    }`}>
+    <div 
+      className={`p-4 shadow-md transition-colors duration-300 ${headerBg} ${isRhythmCheckDue && !isTimerPaused ? 'cursor-pointer' : ''}`}
+      onClick={handleHeaderTap}
+    >
       <div className="flex justify-between items-center mb-3">
         <div className="flex flex-col items-start space-y-1">
-          {isRhythmCheckDue ? (
-            <h1 className="text-3xl font-bold text-white">Rhythm Check</h1>
+          {isRhythmCheckDue && !isTimerPaused ? (
+            <h1 className="text-2xl font-bold text-white leading-tight">RHYTHM CHECK DUE</h1>
           ) : (
             <h1 className="text-3xl font-bold text-gray-900 dark:text-white">eResus</h1>
           )}
           <span
-            className={`px-2 py-0.5 rounded-lg text-xs font-black text-white ${isRhythmCheckDue ? 'bg-white/30' : stateInfo[arrestState].color}`}
+            className={`px-2 py-0.5 rounded-lg text-xs font-black text-white ${
+              isTimerPaused 
+                ? 'bg-orange-500' 
+                : isRhythmCheckDue 
+                  ? 'bg-white/30' 
+                  : stateInfo[arrestState].color
+            }`}
           >
-            {stateInfo[arrestState].text}
+            {isTimerPaused ? 'PAUSED' : stateInfo[arrestState].text}
           </span>
         </div>
         
         <div className="flex flex-col items-end">
-          <div className={`font-mono font-bold text-4xl relative ${
-            isRhythmCheckDue ? 'text-white' : 'text-blue-600 dark:text-blue-400'
-          }`}>
+          <div className="flex items-baseline">
             {timeOffset > 0 && (
-              <span className={`text-xl absolute -left-6 top-0 ${isRhythmCheckDue ? 'text-white/70' : 'text-blue-500'}`}>
-                +{timeOffset / 60}
+              <span className={`font-mono font-bold text-2xl mr-1 ${
+                isRhythmCheckDue && !isTimerPaused ? 'text-white' : 'text-blue-600 dark:text-blue-400'
+              }`}>
+                {Math.floor(timeOffset / 60)}+
               </span>
             )}
-            {TimeFormatter.format(masterTime)}
+            <span className={`font-mono font-bold text-4xl ${
+              isRhythmCheckDue && !isTimerPaused ? 'text-white' : 'text-blue-600 dark:text-blue-400'
+            }`}>
+              {TimeFormatter.format(masterTime)}
+            </span>
           </div>
-          {(arrestState === ArrestState.Active || arrestState === ArrestState.Pending) && (
+          {(arrestState === ArrestState.Active || arrestState === ArrestState.Pending) && !isTimerPaused && (
             <div className="flex space-x-1 mt-1">
-              <button onClick={() => addTimeOffset(60)} className={`px-2 py-0.5 text-xs rounded ${isRhythmCheckDue ? 'bg-white/20 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'}`}>+1m</button>
-              <button onClick={() => addTimeOffset(300)} className={`px-2 py-0.5 text-xs rounded ${isRhythmCheckDue ? 'bg-white/20 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'}`}>+5m</button>
-              <button onClick={() => addTimeOffset(600)} className={`px-2 py-0.5 text-xs rounded ${isRhythmCheckDue ? 'bg-white/20 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'}`}>+10m</button>
+              <button onClick={(e) => { e.stopPropagation(); addTimeOffset(60); }} className={`px-2 py-0.5 text-xs rounded ${isRhythmCheckDue ? 'bg-white/20 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'}`}>+1m</button>
+              <button onClick={(e) => { e.stopPropagation(); addTimeOffset(300); }} className={`px-2 py-0.5 text-xs rounded ${isRhythmCheckDue ? 'bg-white/20 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'}`}>+5m</button>
+              <button onClick={(e) => { e.stopPropagation(); addTimeOffset(600); }} className={`px-2 py-0.5 text-xs rounded ${isRhythmCheckDue ? 'bg-white/20 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'}`}>+10m</button>
             </div>
           )}
         </div>
       </div>
       
-      {arrestState !== ArrestState.Pending && <CountersView />}
+      {arrestState !== ArrestState.Pending && (
+        <CountersView isDue={isRhythmCheckDue && !isTimerPaused} />
+      )}
     </div>
   );
 };
