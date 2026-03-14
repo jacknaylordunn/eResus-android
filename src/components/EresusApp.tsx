@@ -1373,7 +1373,7 @@ const InstallInstructionsModal: React.FC<{
 };
 
 const SummaryView: React.FC<{ isOpen: boolean; onClose: () => void; }> = ({ isOpen, onClose }) => {
-  const { events, totalArrestTime, copySummaryToClipboard } = useArrest();
+  const { events, totalArrestTime, copySummaryToClipboard, shockCount, adrenalineCount, amiodaroneCount, lidocaineCount, roscTime, startTime } = useArrest();
   
   const sortedEvents = useMemo(() => 
     [...events].sort((a, b) => a.timestamp - b.timestamp), 
@@ -1383,9 +1383,22 @@ const SummaryView: React.FC<{ isOpen: boolean; onClose: () => void; }> = ({ isOp
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Event Summary">
       <div className="flex flex-col space-y-4">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-          Total Arrest Time: {TimeFormatter.format(totalArrestTime)}
-        </h3>
+        <div className="space-y-1">
+          <p className="text-sm text-gray-700 dark:text-gray-300">
+            <strong>Start:</strong> {startTime ? startTime.toLocaleTimeString() : "Unknown"}
+          </p>
+          <p className="text-lg font-semibold text-gray-900 dark:text-white">
+            Total Time: {TimeFormatter.format(totalArrestTime)}
+          </p>
+          <p className="text-sm text-gray-700 dark:text-gray-300">
+            Shocks: {shockCount} | Adrenaline: {adrenalineCount} | Amiodarone: {amiodaroneCount} | Lidocaine: {lidocaineCount}
+          </p>
+          {roscTime !== null && (
+            <p className="text-sm text-green-600 dark:text-green-400 font-semibold">
+              ROSC at: {TimeFormatter.format(roscTime)}
+            </p>
+          )}
+        </div>
         
         <div className="space-y-2 max-h-60 overflow-y-auto p-2 bg-gray-50 dark:bg-gray-700 rounded-lg font-mono text-sm">
           {sortedEvents.map((event, index) => (
