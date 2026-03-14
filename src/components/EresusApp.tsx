@@ -2199,25 +2199,34 @@ const AdrenalineDueWarning: React.FC<{ onClick?: () => void }> = ({ onClick }) =
   </button>
 );
 
-const AmiodaroneReminderView: React.FC<{ onClick?: () => void }> = ({ onClick }) => (
-  <button onClick={onClick} className="flex items-center justify-center space-x-2 p-3 rounded-2xl bg-purple-600 text-white font-bold animate-pulse w-full cursor-pointer active:scale-95 transition-transform">
-    <Syringe size={20} />
-    <span>Consider 2nd Amiodarone — Tap to Log</span>
-  </button>
+const AmiodaroneReminderView: React.FC<{ onClick?: () => void; onDismiss?: () => void }> = ({ onClick, onDismiss }) => (
+  <div className="relative">
+    <button onClick={onClick} className="flex items-center justify-center space-x-2 p-3 rounded-2xl bg-purple-600 text-white font-bold animate-pulse w-full cursor-pointer active:scale-95 transition-transform">
+      <Syringe size={20} />
+      <span>Consider 2nd Amiodarone — Tap to Log</span>
+    </button>
+    {onDismiss && <button onClick={(e) => { e.stopPropagation(); onDismiss(); }} className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-gray-800 text-white flex items-center justify-center text-xs">✕</button>}
+  </div>
 );
 
-const AdrenalinePromptView: React.FC<{ onClick?: () => void }> = ({ onClick }) => (
-  <button onClick={onClick} className="flex items-center justify-center space-x-2 p-3 rounded-2xl bg-pink-500 text-white font-bold animate-pulse w-full cursor-pointer active:scale-95 transition-transform">
-    <Syringe size={20} />
-    <span>Consider Adrenaline — Tap to Log</span>
-  </button>
+const AdrenalinePromptView: React.FC<{ onClick?: () => void; onDismiss?: () => void }> = ({ onClick, onDismiss }) => (
+  <div className="relative">
+    <button onClick={onClick} className="flex items-center justify-center space-x-2 p-3 rounded-2xl bg-pink-500 text-white font-bold animate-pulse w-full cursor-pointer active:scale-95 transition-transform">
+      <Syringe size={20} />
+      <span>Consider Adrenaline — Tap to Log</span>
+    </button>
+    {onDismiss && <button onClick={(e) => { e.stopPropagation(); onDismiss(); }} className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-gray-800 text-white flex items-center justify-center text-xs">✕</button>}
+  </div>
 );
 
-const AmiodaronePromptView: React.FC<{ onClick?: () => void }> = ({ onClick }) => (
-  <button onClick={onClick} className="flex items-center justify-center space-x-2 p-3 rounded-2xl bg-purple-600 text-white font-bold animate-pulse w-full cursor-pointer active:scale-95 transition-transform">
-    <Syringe size={20} />
-    <span>Consider Amiodarone — Tap to Log</span>
-  </button>
+const AmiodaronePromptView: React.FC<{ onClick?: () => void; onDismiss?: () => void }> = ({ onClick, onDismiss }) => (
+  <div className="relative">
+    <button onClick={onClick} className="flex items-center justify-center space-x-2 p-3 rounded-2xl bg-purple-600 text-white font-bold animate-pulse w-full cursor-pointer active:scale-95 transition-transform">
+      <Syringe size={20} />
+      <span>Consider Amiodarone — Tap to Log</span>
+    </button>
+    {onDismiss && <button onClick={(e) => { e.stopPropagation(); onDismiss(); }} className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-gray-800 text-white flex items-center justify-center text-xs">✕</button>}
+  </div>
 );
 
 const ChecklistView: React.FC<{ 
