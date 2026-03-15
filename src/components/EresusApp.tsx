@@ -1826,7 +1826,7 @@ const HeaderView: React.FC = () => {
             <span className={`font-mono font-bold text-4xl ${
               isRhythmCheckDue && !isTimerPaused ? 'text-white' : 'text-blue-600 dark:text-blue-400'
             }`}>
-              {TimeFormatter.format(masterTime)}
+              {TimeFormatter.format(masterTime + timeOffset)}
             </span>
           </div>
           {(arrestState === ArrestState.Active || arrestState === ArrestState.Pending) && !isTimerPaused && (
