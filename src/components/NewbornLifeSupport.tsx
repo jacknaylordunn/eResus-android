@@ -204,7 +204,9 @@ const NewbornLifeSupport: React.FC<NewbornLifeSupportProps> = ({ onBack, onTrans
   const [vascularAccess, setVascularAccess] = useState(ns?.vascularAccess ?? false);
   const [volumeGiven, setVolumeGiven] = useState(ns?.volumeGiven ?? false);
   const [airwayPlaced, setAirwayPlaced] = useState(ns?.airwayPlaced ?? false);
-
+  const [nlsPretermTasks, setNlsPretermTasks] = useState(ns?.nlsPretermTasks ?? nlsPretermTasksTemplate.map(t => ({ ...t })));
+  const [showAirwayModal, setShowAirwayModal] = useState(false);
+  const [showOtherDrugsModal, setShowOtherDrugsModal] = useState(false);
   // Timer refs
   const startTimeRef = useRef<Date | null>(ns?.startTime ? new Date(ns.startTime) : null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
