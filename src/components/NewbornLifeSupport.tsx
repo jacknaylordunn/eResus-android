@@ -167,9 +167,10 @@ const nlsMetronome = new NLSMetronome();
 
 interface NewbornLifeSupportProps {
   onBack: () => void;
+  onTransitionToALS?: () => void; // Called when NLS re-arrest transitions to Paediatric ALS
 }
 
-const NewbornLifeSupport: React.FC<NewbornLifeSupportProps> = ({ onBack }) => {
+const NewbornLifeSupport: React.FC<NewbornLifeSupportProps> = ({ onBack, onTransitionToALS }) => {
   // --- Restore saved session ---
   const savedNls = useRef<any>(null);
   const didRestore = useRef(false);
