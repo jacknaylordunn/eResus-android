@@ -2404,12 +2404,13 @@ const ArrestView: React.FC<{
   const viewModel = useArrest();
   const { showDosagePrompts } = useSettings();
   
-  const [showOtherDrugsModal, setShowOtherDrugsModal] = useState(false);
-  const [showEtco2Modal, setShowEtco2Modal] = useState(false);
-  const [showHypothermiaModal, setShowHypothermiaModal] = useState(false);
-  const [showSummaryModal, setShowSummaryModal] = useState(false);
-  const [showResetModal, setShowResetModal] = useState(false);
-  const [drugToLog, setDrugToLog] = useState<DrugToLog | null>(null);
+   const [showOtherDrugsModal, setShowOtherDrugsModal] = useState(false);
+   const [showEtco2Modal, setShowEtco2Modal] = useState(false);
+   const [showHypothermiaModal, setShowHypothermiaModal] = useState(false);
+   const [showSummaryModal, setShowSummaryModal] = useState(false);
+   const [showResetModal, setShowResetModal] = useState(false);
+   const [showAirwayAdjunctModal, setShowAirwayAdjunctModal] = useState(false);
+   const [drugToLog, setDrugToLog] = useState<DrugToLog | null>(null);
   
   // Drug Confirmation Alert State
   const [drugConfirmation, setDrugConfirmation] = useState<{ drug: DrugToLog, dose: string } | null>(null);
