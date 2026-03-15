@@ -733,8 +733,8 @@ const useArrestViewModel = () => {
   const shouldShowAdrenalinePrompt = useMemo(() => {
     if (!isAdrenalineAvailable || hideAdrenalinePrompt) return false;
     
-    // Timer-based prompt for subsequent doses
-    if (timeUntilAdrenaline !== null && timeUntilAdrenaline <= 0) return true;
+    // Don't show the "Consider" prompt if the timer is already showing the critical "Due" warning
+    if (timeUntilAdrenaline !== null && timeUntilAdrenaline <= 0) return false;
     
     // Initial dose logic
     if (adrenalineCount === 0) {
@@ -1564,6 +1564,46 @@ const Etco2ModalView: React.FC<{ isOpen: boolean; onClose: () => void; }> = ({ i
   );
 };
 
+const AirwayAdjunctModal: React.FC<{ 
+  isOpen: boolean; 
+  onClose: () => void; 
+}> = ({ isOpen, onClose }) => {
+  const { logAirwayPlaced } = useArrest();
+  
+  const handleSelect = (type: AirwayAdjunctType) => {
+    logAirwayPlaced(type);
+    onClose();
+  };
+
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} title="Select Airway Adjunct">
+      <div className="flex flex-col space-y-4">
+        <p className="text-center text-gray-600 dark:text-gray-400">
+          Choose the type of advanced airway placed.
+        </p>
+        <ActionButton
+          title="Supraglottic Airway (i-Gel)"
+          backgroundColor="bg-blue-600"
+          foregroundColor="text-white"
+          onClick={() => handleSelect(AirwayAdjunctType.SGA)}
+        />
+        <ActionButton
+          title="Endotracheal Tube"
+          backgroundColor="bg-indigo-600"
+          foregroundColor="text-white"
+          onClick={() => handleSelect(AirwayAdjunctType.ETT)}
+        />
+        <ActionButton
+          title="Unspecified"
+          backgroundColor="bg-gray-500"
+          foregroundColor="text-white"
+          onClick={() => handleSelect(AirwayAdjunctType.Unspecified)}
+        />
+      </div>
+    </Modal>
+  );
+};
+
 const DosageEntryModal: React.FC<{ 
   isOpen: boolean; 
   onClose: () => void; 
@@ -1972,6 +2012,7 @@ const ActiveArrestContentView: React.FC<{
   onShowOtherDrugs: () => void;
   onShowEtco2: () => void;
   onShowHypothermia: () => void;
+  onShowAirwayAdjunct: () => void;
   onLogAdrenaline: () => void;
   onLogAmiodarone: () => void;
   onLogLidocaine: () => void;
@@ -2098,6 +2139,7 @@ const EndedView: React.FC<{
 const ActionGridView: React.FC<{
   onShowOtherDrugs: () => void;
   onShowEtco2: () => void;
+  onShowAirwayAdjunct: () => void;
   onLogAdrenaline: () => void;
   onLogAmiodarone: () => void;
   onLogLidocaine: () => void;
@@ -2105,7 +2147,7 @@ const ActionGridView: React.FC<{
   const { 
     uiState, analyseRhythm, logRhythm, achieveROSC, deliverShock, 
     isAdrenalineAvailable, isAmiodaroneAvailable, isLidocaineAvailable,
-    airwayPlaced, logAirwayPlaced, endArrest 
+    airwayPlaced, endArrest 
   } = useArrest();
   
   return (
@@ -2168,7 +2210,7 @@ const ActionGridView: React.FC<{
       <div className="p-4 bg-white dark:bg-gray-800 rounded-xl shadow-lg space-y-3">
         <h3 className="text-center font-semibold text-gray-700 dark:text-gray-300">Procedures</h3>
         <div className="grid grid-cols-2 gap-3">
-          <ActionButton title="Adv. Airway" icon={<AirVent size={16} />} backgroundColor="bg-blue-500" foregroundColor="text-white" height="h-12" fontSize="text-sm" onClick={logAirwayPlaced} disabled={airwayPlaced} />
+          <ActionButton title="Adv. Airway" icon={<AirVent size={16} />} backgroundColor="bg-blue-500" foregroundColor="text-white" height="h-12" fontSize="text-sm" onClick={props.onShowAirwayAdjunct} disabled={airwayPlaced} />
           <ActionButton title="Log ETCO2" icon={<Gauge size={16} />} backgroundColor="bg-teal-500" foregroundColor="text-white" height="h-12" fontSize="text-sm" onClick={props.onShowEtco2} />
         </div>
       </div>
@@ -2402,12 +2444,13 @@ const ArrestView: React.FC<{
   const viewModel = useArrest();
   const { showDosagePrompts } = useSettings();
   
-  const [showOtherDrugsModal, setShowOtherDrugsModal] = useState(false);
-  const [showEtco2Modal, setShowEtco2Modal] = useState(false);
-  const [showHypothermiaModal, setShowHypothermiaModal] = useState(false);
-  const [showSummaryModal, setShowSummaryModal] = useState(false);
-  const [showResetModal, setShowResetModal] = useState(false);
-  const [drugToLog, setDrugToLog] = useState<DrugToLog | null>(null);
+   const [showOtherDrugsModal, setShowOtherDrugsModal] = useState(false);
+   const [showEtco2Modal, setShowEtco2Modal] = useState(false);
+   const [showHypothermiaModal, setShowHypothermiaModal] = useState(false);
+   const [showSummaryModal, setShowSummaryModal] = useState(false);
+   const [showResetModal, setShowResetModal] = useState(false);
+   const [showAirwayAdjunctModal, setShowAirwayAdjunctModal] = useState(false);
+   const [drugToLog, setDrugToLog] = useState<DrugToLog | null>(null);
   
   // Drug Confirmation Alert State
   const [drugConfirmation, setDrugConfirmation] = useState<{ drug: DrugToLog, dose: string } | null>(null);
@@ -2470,6 +2513,7 @@ const ArrestView: React.FC<{
             onShowOtherDrugs={() => setShowOtherDrugsModal(true)}
             onShowEtco2={() => setShowEtco2Modal(true)}
             onShowHypothermia={() => setShowHypothermiaModal(true)}
+            onShowAirwayAdjunct={() => setShowAirwayAdjunctModal(true)}
             onLogAdrenaline={() => handleLogDrug({ type: 'adrenaline' })}
             onLogAmiodarone={() => handleLogDrug({ type: 'amiodarone' })}
             onLogLidocaine={() => handleLogDrug({ type: 'lidocaine' })}
@@ -2496,6 +2540,7 @@ const ArrestView: React.FC<{
       <ResetModalView isOpen={showResetModal} onClose={() => setShowResetModal(false)} />
       <HypothermiaModal isOpen={showHypothermiaModal} onClose={() => setShowHypothermiaModal(false)} />
       <Etco2ModalView isOpen={showEtco2Modal} onClose={() => setShowEtco2Modal(false)} />
+      <AirwayAdjunctModal isOpen={showAirwayAdjunctModal} onClose={() => setShowAirwayAdjunctModal(false)} />
       <OtherDrugsModal 
         isOpen={showOtherDrugsModal} 
         onClose={() => setShowOtherDrugsModal(false)} 
@@ -2893,7 +2938,7 @@ const AppContent: React.FC = () => {
     <ArrestContext.Provider value={arrestViewModel}>
       <div className="h-screen w-screen flex flex-col font-sans bg-white dark:bg-gray-900">
         {showNewborn ? (
-          <NewbornLifeSupport onBack={() => setShowNewborn(false)} />
+          <NewbornLifeSupport onBack={() => setShowNewborn(false)} onTransitionToALS={() => { setShowNewborn(false); arrestViewModel.startArrest(); }} />
         ) : (
           <>
             {/* Main Content */}

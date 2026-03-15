@@ -104,6 +104,12 @@ const getSpO2Targets = () => [
   { time: '10 min', target: '85-95%' },
 ];
 
+const nlsPretermTasksTemplate = [
+  { id: 'cpap', name: 'Consider CPAP (5-8 cm H₂O) if breathing', isCompleted: false },
+  { id: 'glucose', name: 'Check Blood Glucose', isCompleted: false },
+  { id: 'spo2', name: 'Titrate O₂ to target SpO₂', isCompleted: false },
+];
+
 // ============================================================================
 // METRONOME (3:1 ratio for NLS — 120 events/min)
 // ============================================================================
@@ -161,9 +167,10 @@ const nlsMetronome = new NLSMetronome();
 
 interface NewbornLifeSupportProps {
   onBack: () => void;
+  onTransitionToALS?: () => void; // Called when NLS re-arrest transitions to Paediatric ALS
 }
 
-const NewbornLifeSupport: React.FC<NewbornLifeSupportProps> = ({ onBack }) => {
+const NewbornLifeSupport: React.FC<NewbornLifeSupportProps> = ({ onBack, onTransitionToALS }) => {
   // --- Restore saved session ---
   const savedNls = useRef<any>(null);
   const didRestore = useRef(false);
@@ -197,7 +204,9 @@ const NewbornLifeSupport: React.FC<NewbornLifeSupportProps> = ({ onBack }) => {
   const [vascularAccess, setVascularAccess] = useState(ns?.vascularAccess ?? false);
   const [volumeGiven, setVolumeGiven] = useState(ns?.volumeGiven ?? false);
   const [airwayPlaced, setAirwayPlaced] = useState(ns?.airwayPlaced ?? false);
-
+  const [nlsPretermTasks, setNlsPretermTasks] = useState(ns?.nlsPretermTasks ?? nlsPretermTasksTemplate.map(t => ({ ...t })));
+  const [showAirwayModal, setShowAirwayModal] = useState(false);
+  const [showOtherDrugsModal, setShowOtherDrugsModal] = useState(false);
   // Timer refs
   const startTimeRef = useRef<Date | null>(ns?.startTime ? new Date(ns.startTime) : null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -390,12 +399,20 @@ const NewbornLifeSupport: React.FC<NewbornLifeSupportProps> = ({ onBack }) => {
 
   const reArrest = () => {
     saveUndo();
-    setArrestState(NLSArrestState.Active);
-    cprCycleStartTimeRef.current = totalArrestTime;
-    setCprTime(30);
-    setNlsCycleDuration(30);
-    setNlsState(NLSState.ContinueVentilation);
-    logEvent("Baby Stopped Breathing. Ventilation Resumed.", "status");
+    // iOS: When NLS baby re-arrests after ROSC, transition to Paediatric ALS
+    logEvent("Baby Stopped Breathing. Transitioning to Paediatric ALS.", "status");
+    // Save to logbook then navigate back to main view which will start a general arrest
+    saveToLogbook().then(() => {
+      if (timerRef.current) clearInterval(timerRef.current);
+      nlsMetronome.stop();
+      setMetronomeOn(false);
+      localStorage.removeItem(NLS_SESSION_KEY);
+      if (onTransitionToALS) {
+        onTransitionToALS();
+      } else {
+        onBack();
+      }
+    });
   };
 
   const reassessPatient = () => {
@@ -884,16 +901,11 @@ const NewbornLifeSupport: React.FC<NewbornLifeSupportProps> = ({ onBack }) => {
                   onClick={() => { saveUndo(); setAdrenalineCount(p => p + 1); logEvent(`Adrenaline dose ${adrenalineCount + 1} (10-30 mcg/kg IV)`, "drug"); }}
                   height="h-12" fontSize="text-sm" />
                 <NLSActionButton color="bg-indigo-600" icon={<AirVent size={16} />} label="Intubation / SGA" 
-                  onClick={() => { saveUndo(); setAirwayPlaced(true); logEvent("Advanced Airway Placed (SGA/ETT)", "airway"); }}
+                  onClick={() => setShowAirwayModal(true)}
                   disabled={airwayPlaced} height="h-12" fontSize="text-sm" />
                 <NLSActionButton color="bg-gray-500" icon={<Pill size={16} />} label="Other Meds / Vol..."
-                  onClick={() => {
-                    saveUndo();
-                    if (!volumeGiven) {
-                      setVolumeGiven(true);
-                      logEvent("Volume 10ml/kg 0.9% NaCl", "drug");
-                    }
-                  }} height="h-12" fontSize="text-sm" />
+                  onClick={() => setShowOtherDrugsModal(true)}
+                  height="h-12" fontSize="text-sm" />
               </div>
               <NLSActionButton color="bg-red-600" icon={<XSquare size={16} />} label="End Resus" onClick={endResuscitation} height="h-12" fontSize="text-sm" />
             </div>
@@ -905,7 +917,20 @@ const NewbornLifeSupport: React.FC<NewbornLifeSupportProps> = ({ onBack }) => {
             {isPreterm && (
               <div className="p-4 bg-white dark:bg-gray-800 rounded-xl shadow-sm space-y-3">
                 <h3 className="font-semibold text-gray-500 dark:text-gray-400">Preterm &lt; 32 Weeks Tasks</h3>
-                {/* Simplified checklist for preterm */}
+                {nlsPretermTasks.map((task, idx) => (
+                  <button key={task.id} onClick={() => {
+                    saveUndo();
+                    setNlsPretermTasks(prev => prev.map((t, i) => i === idx ? { ...t, isCompleted: !t.isCompleted } : t));
+                    logEvent(`${task.name} ${!task.isCompleted ? 'checked' : 'unchecked'}`);
+                  }} className="flex items-center w-full text-left space-x-3">
+                    {task.isCompleted ? (
+                      <CheckCircle2 size={24} className="text-green-500 flex-shrink-0" />
+                    ) : (
+                      <Circle size={24} className="text-gray-400 dark:text-gray-500 flex-shrink-0" />
+                    )}
+                    <span className={`text-gray-900 dark:text-white ${task.isCompleted ? 'line-through' : ''}`}>{task.name}</span>
+                  </button>
+                ))}
               </div>
             )}
 
@@ -1031,6 +1056,28 @@ const NewbornLifeSupport: React.FC<NewbornLifeSupportProps> = ({ onBack }) => {
             <button onClick={confirmBack}
               className="flex-1 py-3 rounded-xl bg-red-600 text-white font-bold active:scale-95 transition-transform">Save & Leave</button>
           </div>
+        </div>
+      </NLSModal>
+
+      {/* Airway Adjunct Modal */}
+      <NLSModal isOpen={showAirwayModal} onClose={() => setShowAirwayModal(false)} title="Select Airway Adjunct">
+        <div className="flex flex-col space-y-4">
+          <p className="text-center text-gray-600 dark:text-gray-400">Choose the type of advanced airway placed.</p>
+          <NLSActionButton color="bg-blue-600" label="Supraglottic Airway (i-Gel)" onClick={() => { saveUndo(); setAirwayPlaced(true); logEvent("Advanced Airway Placed - Supraglottic Airway (i-Gel)", "airway"); setShowAirwayModal(false); }} />
+          <NLSActionButton color="bg-indigo-600" label="Endotracheal Tube" onClick={() => { saveUndo(); setAirwayPlaced(true); logEvent("Advanced Airway Placed - Endotracheal Tube", "airway"); setShowAirwayModal(false); }} />
+          <NLSActionButton color="bg-gray-500" label="Unspecified" onClick={() => { saveUndo(); setAirwayPlaced(true); logEvent("Advanced Airway Placed - Unspecified", "airway"); setShowAirwayModal(false); }} />
+        </div>
+      </NLSModal>
+
+      {/* Other Drugs Modal */}
+      <NLSModal isOpen={showOtherDrugsModal} onClose={() => setShowOtherDrugsModal(false)} title="Log Other Medication">
+        <div className="flex flex-col space-y-2">
+          {['Adenosine','Adrenaline 1:1000','Adrenaline 1:10,000','Amiodarone (Further Dose)','Atropine','Calcium chloride','Glucose','Hartmann\'s solution','Magnesium sulphate','Midazolam','Naloxone','Potassium chloride','Sodium bicarbonate','Sodium chloride','Tranexamic acid','Volume 10ml/kg 0.9% NaCl'].sort().map(drug => (
+            <button key={drug} onClick={() => { saveUndo(); logEvent(`${drug} Given`, "drug"); setShowOtherDrugsModal(false); }}
+              className="w-full text-left p-3 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 text-gray-900 dark:text-white">
+              {drug}
+            </button>
+          ))}
         </div>
       </NLSModal>
     </div>
