@@ -2540,6 +2540,7 @@ const ArrestView: React.FC<{
       <ResetModalView isOpen={showResetModal} onClose={() => setShowResetModal(false)} />
       <HypothermiaModal isOpen={showHypothermiaModal} onClose={() => setShowHypothermiaModal(false)} />
       <Etco2ModalView isOpen={showEtco2Modal} onClose={() => setShowEtco2Modal(false)} />
+      <AirwayAdjunctModal isOpen={showAirwayAdjunctModal} onClose={() => setShowAirwayAdjunctModal(false)} />
       <OtherDrugsModal 
         isOpen={showOtherDrugsModal} 
         onClose={() => setShowOtherDrugsModal(false)} 
