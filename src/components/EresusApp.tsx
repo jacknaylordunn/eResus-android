@@ -1564,6 +1564,46 @@ const Etco2ModalView: React.FC<{ isOpen: boolean; onClose: () => void; }> = ({ i
   );
 };
 
+const AirwayAdjunctModal: React.FC<{ 
+  isOpen: boolean; 
+  onClose: () => void; 
+}> = ({ isOpen, onClose }) => {
+  const { logAirwayPlaced } = useArrest();
+  
+  const handleSelect = (type: AirwayAdjunctType) => {
+    logAirwayPlaced(type);
+    onClose();
+  };
+
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} title="Select Airway Adjunct">
+      <div className="flex flex-col space-y-4">
+        <p className="text-center text-gray-600 dark:text-gray-400">
+          Choose the type of advanced airway placed.
+        </p>
+        <ActionButton
+          title="Supraglottic Airway (i-Gel)"
+          backgroundColor="bg-blue-600"
+          foregroundColor="text-white"
+          onClick={() => handleSelect(AirwayAdjunctType.SGA)}
+        />
+        <ActionButton
+          title="Endotracheal Tube"
+          backgroundColor="bg-indigo-600"
+          foregroundColor="text-white"
+          onClick={() => handleSelect(AirwayAdjunctType.ETT)}
+        />
+        <ActionButton
+          title="Unspecified"
+          backgroundColor="bg-gray-500"
+          foregroundColor="text-white"
+          onClick={() => handleSelect(AirwayAdjunctType.Unspecified)}
+        />
+      </div>
+    </Modal>
+  );
+};
+
 const DosageEntryModal: React.FC<{ 
   isOpen: boolean; 
   onClose: () => void; 
