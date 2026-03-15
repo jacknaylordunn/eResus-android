@@ -733,8 +733,8 @@ const useArrestViewModel = () => {
   const shouldShowAdrenalinePrompt = useMemo(() => {
     if (!isAdrenalineAvailable || hideAdrenalinePrompt) return false;
     
-    // Timer-based prompt for subsequent doses
-    if (timeUntilAdrenaline !== null && timeUntilAdrenaline <= 0) return true;
+    // Don't show the "Consider" prompt if the timer is already showing the critical "Due" warning
+    if (timeUntilAdrenaline !== null && timeUntilAdrenaline <= 0) return false;
     
     // Initial dose logic
     if (adrenalineCount === 0) {
