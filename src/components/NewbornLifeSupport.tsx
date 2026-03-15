@@ -901,16 +901,11 @@ const NewbornLifeSupport: React.FC<NewbornLifeSupportProps> = ({ onBack, onTrans
                   onClick={() => { saveUndo(); setAdrenalineCount(p => p + 1); logEvent(`Adrenaline dose ${adrenalineCount + 1} (10-30 mcg/kg IV)`, "drug"); }}
                   height="h-12" fontSize="text-sm" />
                 <NLSActionButton color="bg-indigo-600" icon={<AirVent size={16} />} label="Intubation / SGA" 
-                  onClick={() => { saveUndo(); setAirwayPlaced(true); logEvent("Advanced Airway Placed (SGA/ETT)", "airway"); }}
+                  onClick={() => setShowAirwayModal(true)}
                   disabled={airwayPlaced} height="h-12" fontSize="text-sm" />
                 <NLSActionButton color="bg-gray-500" icon={<Pill size={16} />} label="Other Meds / Vol..."
-                  onClick={() => {
-                    saveUndo();
-                    if (!volumeGiven) {
-                      setVolumeGiven(true);
-                      logEvent("Volume 10ml/kg 0.9% NaCl", "drug");
-                    }
-                  }} height="h-12" fontSize="text-sm" />
+                  onClick={() => setShowOtherDrugsModal(true)}
+                  height="h-12" fontSize="text-sm" />
               </div>
               <NLSActionButton color="bg-red-600" icon={<XSquare size={16} />} label="End Resus" onClick={endResuscitation} height="h-12" fontSize="text-sm" />
             </div>
@@ -922,7 +917,20 @@ const NewbornLifeSupport: React.FC<NewbornLifeSupportProps> = ({ onBack, onTrans
             {isPreterm && (
               <div className="p-4 bg-white dark:bg-gray-800 rounded-xl shadow-sm space-y-3">
                 <h3 className="font-semibold text-gray-500 dark:text-gray-400">Preterm &lt; 32 Weeks Tasks</h3>
-                {/* Simplified checklist for preterm */}
+                {nlsPretermTasks.map((task, idx) => (
+                  <button key={task.id} onClick={() => {
+                    saveUndo();
+                    setNlsPretermTasks(prev => prev.map((t, i) => i === idx ? { ...t, isCompleted: !t.isCompleted } : t));
+                    logEvent(`${task.name} ${!task.isCompleted ? 'checked' : 'unchecked'}`);
+                  }} className="flex items-center w-full text-left space-x-3">
+                    {task.isCompleted ? (
+                      <CheckCircle2 size={24} className="text-green-500 flex-shrink-0" />
+                    ) : (
+                      <Circle size={24} className="text-gray-400 dark:text-gray-500 flex-shrink-0" />
+                    )}
+                    <span className={`text-gray-900 dark:text-white ${task.isCompleted ? 'line-through' : ''}`}>{task.name}</span>
+                  </button>
+                ))}
               </div>
             )}
 
