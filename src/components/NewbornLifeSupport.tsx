@@ -104,6 +104,12 @@ const getSpO2Targets = () => [
   { time: '10 min', target: '85-95%' },
 ];
 
+const nlsPretermTasksTemplate = [
+  { id: 'cpap', name: 'Consider CPAP (5-8 cm H₂O) if breathing', isCompleted: false },
+  { id: 'glucose', name: 'Check Blood Glucose', isCompleted: false },
+  { id: 'spo2', name: 'Titrate O₂ to target SpO₂', isCompleted: false },
+];
+
 // ============================================================================
 // METRONOME (3:1 ratio for NLS — 120 events/min)
 // ============================================================================
