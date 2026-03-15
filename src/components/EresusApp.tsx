@@ -2938,7 +2938,7 @@ const AppContent: React.FC = () => {
     <ArrestContext.Provider value={arrestViewModel}>
       <div className="h-screen w-screen flex flex-col font-sans bg-white dark:bg-gray-900">
         {showNewborn ? (
-          <NewbornLifeSupport onBack={() => setShowNewborn(false)} />
+          <NewbornLifeSupport onBack={() => setShowNewborn(false)} onTransitionToALS={() => { setShowNewborn(false); arrestViewModel.startArrest(); }} />
         ) : (
           <>
             {/* Main Content */}
