@@ -111,49 +111,110 @@ const nlsPretermTasksTemplate = [
 ];
 
 // ============================================================================
-// METRONOME (3:1 ratio for NLS — 120 events/min)
+// METRONOME (3:1 ratio for NLS — matches iOS precisely)
+// Uses AudioContext lookahead scheduling for rock-solid timing.
+// Pattern: 3 compressions (low tick) + 1 ventilation (high chirp) = 120 events/min
 // ============================================================================
 class NLSMetronome {
   private audioContext: AudioContext | null = null;
-  private timer: ReturnType<typeof setInterval> | null = null;
+  private schedulerTimer: ReturnType<typeof setInterval> | null = null;
   private _isPlaying = false;
-  private beatCount = 0;
+  private nextNoteTime = 0;
+  private beatIndex = 0;
+  private unlocked = false;
 
-  async start() {
-    if (this._isPlaying) return;
-    try {
-      this.audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-      if (this.audioContext.state === 'suspended') await this.audioContext.resume();
-    } catch { return; }
-    
-    this._isPlaying = true;
-    this.beatCount = 0;
-    const interval = 500; // 120 events/min = 500ms each
-    this.playBeat();
-    this.timer = setInterval(() => this.playBeat(), interval);
+  // Lookahead scheduling constants (matches iOS CADisplayLink precision)
+  private readonly SCHEDULE_AHEAD = 0.1; // seconds to schedule ahead
+  private readonly TIMER_INTERVAL = 25;  // ms between scheduler checks
+  private readonly BEAT_INTERVAL = 0.5;  // 120 events/min = 500ms each
+
+  private async initContext() {
+    if (!this.audioContext) {
+      try {
+        this.audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      } catch { return false; }
+    }
+    if (this.audioContext.state === 'suspended') {
+      try { await this.audioContext.resume(); } catch { return false; }
+    }
+    return this.audioContext.state === 'running';
   }
 
-  private playBeat() {
-    if (!this.audioContext || this.audioContext.state !== 'running') return;
+  async unlock() {
+    if (this.unlocked) return true;
+    const ok = await this.initContext();
+    if (ok && this.audioContext) {
+      const osc = this.audioContext.createOscillator();
+      const g = this.audioContext.createGain();
+      g.gain.value = 0;
+      osc.connect(g);
+      g.connect(this.audioContext.destination);
+      osc.start(0);
+      osc.stop(0.001);
+      this.unlocked = true;
+    }
+    return this.unlocked;
+  }
+
+  private scheduleNote(time: number, isBreath: boolean, isAccent: boolean) {
+    if (!this.audioContext) return;
     const ctx = this.audioContext;
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
-    osc.type = 'sine';
-    const isBreath = this.beatCount % 4 === 3;
-    osc.frequency.setValueAtTime(isBreath ? 1200 : 800, ctx.currentTime);
-    gain.gain.setValueAtTime(0.3, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.05);
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.start(ctx.currentTime);
-    osc.stop(ctx.currentTime + 0.05);
-    this.beatCount++;
+
+    if (isBreath) {
+      // Ventilation: higher pitched chirp, slightly longer
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(1200, time);
+      osc.frequency.exponentialRampToValueAtTime(900, time + 0.08);
+      gain.gain.setValueAtTime(0.35, time);
+      gain.gain.exponentialRampToValueAtTime(0.01, time + 0.12);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(time);
+      osc.stop(time + 0.12);
+    } else {
+      // Compression: short, punchy tick
+      osc.type = 'sine';
+      const freq = isAccent ? 880 : 800;
+      const vol = isAccent ? 0.4 : 0.3;
+      osc.frequency.setValueAtTime(freq, time);
+      gain.gain.setValueAtTime(vol, time);
+      gain.gain.exponentialRampToValueAtTime(0.01, time + 0.04);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(time);
+      osc.stop(time + 0.04);
+    }
+  }
+
+  private scheduler = () => {
+    if (!this.audioContext) return;
+    while (this.nextNoteTime < this.audioContext.currentTime + this.SCHEDULE_AHEAD) {
+      const isBreath = this.beatIndex % 4 === 3;
+      const isAccent = this.beatIndex % 4 === 0;
+      this.scheduleNote(this.nextNoteTime, isBreath, isAccent);
+      this.nextNoteTime += this.BEAT_INTERVAL;
+      this.beatIndex++;
+    }
+  };
+
+  async start() {
+    if (this._isPlaying) return;
+    await this.unlock();
+    const ok = await this.initContext();
+    if (!ok || !this.audioContext) return;
+
+    this._isPlaying = true;
+    this.beatIndex = 0;
+    this.nextNoteTime = this.audioContext.currentTime + 0.05; // small offset to start
+    this.schedulerTimer = setInterval(this.scheduler, this.TIMER_INTERVAL);
   }
 
   stop() {
-    if (this.timer) { clearInterval(this.timer); this.timer = null; }
+    if (this.schedulerTimer) { clearInterval(this.schedulerTimer); this.schedulerTimer = null; }
     this._isPlaying = false;
-    if (this.audioContext) { this.audioContext.close().catch(() => {}); this.audioContext = null; }
+    // Don't close context — reuse it for faster restart
   }
 
   get isPlaying() { return this._isPlaying; }
