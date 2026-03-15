@@ -1972,6 +1972,7 @@ const ActiveArrestContentView: React.FC<{
   onShowOtherDrugs: () => void;
   onShowEtco2: () => void;
   onShowHypothermia: () => void;
+  onShowAirwayAdjunct: () => void;
   onLogAdrenaline: () => void;
   onLogAmiodarone: () => void;
   onLogLidocaine: () => void;
