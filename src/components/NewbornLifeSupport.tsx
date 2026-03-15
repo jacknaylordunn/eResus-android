@@ -648,7 +648,7 @@ const NewbornLifeSupport: React.FC<NewbornLifeSupportProps> = ({ onBack, onTrans
   // RENDER
   // ============================================================================
   return (
-    <div className="flex flex-col h-full bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-white">
+    <div className="flex flex-col h-full bg-background text-foreground">
       {/* ===== HEADER — matches iOS HeaderView for NLS ===== */}
       <div 
         className={`px-4 pt-4 pb-3 shadow-md transition-colors duration-300 ${

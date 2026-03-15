@@ -1766,7 +1766,7 @@ const ActionButton: React.FC<ActionButtonProps> = ({
 
 // --- Header & Timers ---
 const HeaderView: React.FC = () => {
-  const { arrestState, masterTime, timeOffset, addTimeOffset, cprTime, uiState, isTimerPaused, analyseRhythm } = useArrest();
+  const { arrestState, masterTime, timeOffset, totalArrestTime, addTimeOffset, cprTime, uiState, isTimerPaused, analyseRhythm } = useArrest();
   
   const isRhythmCheckDue = arrestState === ArrestState.Active && uiState === UIState.Default && cprTime <= 0;
   
