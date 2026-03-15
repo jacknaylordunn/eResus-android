@@ -3,7 +3,109 @@
 @tailwind utilities;
 
 @layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222 47% 11%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+    --primary: 221 83% 53%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96%;
+    --secondary-foreground: 222 47% 11%;
+    --muted: 210 40% 96%;
+    --muted-foreground: 215 16% 47%;
+    --accent: 210 40% 96%;
+    --accent-foreground: 222 47% 11%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 221 83% 53%;
+    --radius: 0.75rem;
+
+    /* Medical UI semantic tokens */
+    --medical-danger: 0 84% 60%;
+    --medical-danger-foreground: 0 0% 100%;
+    --medical-warning: 25 95% 53%;
+    --medical-warning-foreground: 0 0% 100%;
+    --medical-success: 142 71% 45%;
+    --medical-success-foreground: 0 0% 100%;
+    --medical-info: 221 83% 53%;
+    --medical-info-foreground: 0 0% 100%;
+
+    /* Drug colors */
+    --drug-adrenaline: 330 81% 60%;
+    --drug-amiodarone: 271 81% 56%;
+    --drug-lidocaine: 239 84% 67%;
+    --drug-shock: 25 95% 53%;
+
+    /* State colors */
+    --state-active: 0 84% 60%;
+    --state-rosc: 142 71% 45%;
+    --state-ended: 0 0% 0%;
+    --state-paused: 25 95% 53%;
+    --state-pending: 215 16% 47%;
+
+    /* Surface colors */
+    --surface-primary: 0 0% 100%;
+    --surface-secondary: 220 14% 96%;
+    --surface-elevated: 0 0% 100%;
+  }
+
+  .dark {
+    --background: 222 47% 11%;
+    --foreground: 210 40% 98%;
+    --card: 217 33% 17%;
+    --card-foreground: 210 40% 98%;
+    --popover: 217 33% 17%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 217 91% 60%;
+    --primary-foreground: 222 47% 11%;
+    --secondary: 217 33% 17%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217 33% 17%;
+    --muted-foreground: 215 20% 65%;
+    --accent: 217 33% 17%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 63% 31%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217 33% 17%;
+    --input: 217 33% 17%;
+    --ring: 224 76% 48%;
+
+    /* Medical UI semantic tokens */
+    --medical-danger: 0 84% 60%;
+    --medical-danger-foreground: 0 0% 100%;
+    --medical-warning: 25 95% 53%;
+    --medical-warning-foreground: 0 0% 100%;
+    --medical-success: 142 71% 45%;
+    --medical-success-foreground: 0 0% 100%;
+    --medical-info: 217 91% 60%;
+    --medical-info-foreground: 222 47% 11%;
+
+    /* Drug colors */
+    --drug-adrenaline: 330 81% 60%;
+    --drug-amiodarone: 271 81% 56%;
+    --drug-lidocaine: 239 84% 67%;
+    --drug-shock: 25 95% 53%;
+
+    /* State colors */
+    --state-active: 0 84% 60%;
+    --state-rosc: 142 71% 45%;
+    --state-ended: 0 0% 0%;
+    --state-paused: 25 95% 53%;
+    --state-pending: 215 16% 47%;
+
+    /* Surface colors */
+    --surface-primary: 222 47% 11%;
+    --surface-secondary: 217 33% 17%;
+    --surface-elevated: 217 33% 17%;
+  }
+
   body, html, #root {
-    @apply bg-white dark:bg-gray-900;
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
   }
 }
