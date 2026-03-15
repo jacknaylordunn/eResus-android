@@ -403,7 +403,8 @@ const NewbornLifeSupport: React.FC<NewbornLifeSupportProps> = ({ onBack, onTrans
       case NLSState.Compressions:
         logEvent("Started Chest Compressions (3:1 Ratio, 100% O₂)", "cpr");
         setFio2('100');
-        // Stop metronome when entering compressions (user can start manually)
+        // Auto-start metronome when entering compressions (matches iOS)
+        nlsMetronome.start().then(() => setMetronomeOn(nlsMetronome.isPlaying));
         break;
     }
 
