@@ -2168,7 +2168,7 @@ const ActionGridView: React.FC<{
       <div className="p-4 bg-white dark:bg-gray-800 rounded-xl shadow-lg space-y-3">
         <h3 className="text-center font-semibold text-gray-700 dark:text-gray-300">Procedures</h3>
         <div className="grid grid-cols-2 gap-3">
-          <ActionButton title="Adv. Airway" icon={<AirVent size={16} />} backgroundColor="bg-blue-500" foregroundColor="text-white" height="h-12" fontSize="text-sm" onClick={logAirwayPlaced} disabled={airwayPlaced} />
+          <ActionButton title="Adv. Airway" icon={<AirVent size={16} />} backgroundColor="bg-blue-500" foregroundColor="text-white" height="h-12" fontSize="text-sm" onClick={props.onShowAirwayAdjunct} disabled={airwayPlaced} />
           <ActionButton title="Log ETCO2" icon={<Gauge size={16} />} backgroundColor="bg-teal-500" foregroundColor="text-white" height="h-12" fontSize="text-sm" onClick={props.onShowEtco2} />
         </div>
       </div>
