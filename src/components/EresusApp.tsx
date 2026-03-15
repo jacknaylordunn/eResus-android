@@ -2473,6 +2473,7 @@ const ArrestView: React.FC<{
             onShowOtherDrugs={() => setShowOtherDrugsModal(true)}
             onShowEtco2={() => setShowEtco2Modal(true)}
             onShowHypothermia={() => setShowHypothermiaModal(true)}
+            onShowAirwayAdjunct={() => setShowAirwayAdjunctModal(true)}
             onLogAdrenaline={() => handleLogDrug({ type: 'adrenaline' })}
             onLogAmiodarone={() => handleLogDrug({ type: 'amiodarone' })}
             onLogLidocaine={() => handleLogDrug({ type: 'lidocaine' })}
