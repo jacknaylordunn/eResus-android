@@ -1058,6 +1058,28 @@ const NewbornLifeSupport: React.FC<NewbornLifeSupportProps> = ({ onBack, onTrans
           </div>
         </div>
       </NLSModal>
+
+      {/* Airway Adjunct Modal */}
+      <NLSModal isOpen={showAirwayModal} onClose={() => setShowAirwayModal(false)} title="Select Airway Adjunct">
+        <div className="flex flex-col space-y-4">
+          <p className="text-center text-gray-600 dark:text-gray-400">Choose the type of advanced airway placed.</p>
+          <NLSActionButton color="bg-blue-600" label="Supraglottic Airway (i-Gel)" onClick={() => { saveUndo(); setAirwayPlaced(true); logEvent("Advanced Airway Placed - Supraglottic Airway (i-Gel)", "airway"); setShowAirwayModal(false); }} />
+          <NLSActionButton color="bg-indigo-600" label="Endotracheal Tube" onClick={() => { saveUndo(); setAirwayPlaced(true); logEvent("Advanced Airway Placed - Endotracheal Tube", "airway"); setShowAirwayModal(false); }} />
+          <NLSActionButton color="bg-gray-500" label="Unspecified" onClick={() => { saveUndo(); setAirwayPlaced(true); logEvent("Advanced Airway Placed - Unspecified", "airway"); setShowAirwayModal(false); }} />
+        </div>
+      </NLSModal>
+
+      {/* Other Drugs Modal */}
+      <NLSModal isOpen={showOtherDrugsModal} onClose={() => setShowOtherDrugsModal(false)} title="Log Other Medication">
+        <div className="flex flex-col space-y-2">
+          {['Adenosine','Adrenaline 1:1000','Adrenaline 1:10,000','Amiodarone (Further Dose)','Atropine','Calcium chloride','Glucose','Hartmann\'s solution','Magnesium sulphate','Midazolam','Naloxone','Potassium chloride','Sodium bicarbonate','Sodium chloride','Tranexamic acid','Volume 10ml/kg 0.9% NaCl'].sort().map(drug => (
+            <button key={drug} onClick={() => { saveUndo(); logEvent(`${drug} Given`, "drug"); setShowOtherDrugsModal(false); }}
+              className="w-full text-left p-3 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 text-gray-900 dark:text-white">
+              {drug}
+            </button>
+          ))}
+        </div>
+      </NLSModal>
     </div>
   );
 };
