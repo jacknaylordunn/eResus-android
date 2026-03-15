@@ -2098,6 +2098,7 @@ const EndedView: React.FC<{
 const ActionGridView: React.FC<{
   onShowOtherDrugs: () => void;
   onShowEtco2: () => void;
+  onShowAirwayAdjunct: () => void;
   onLogAdrenaline: () => void;
   onLogAmiodarone: () => void;
   onLogLidocaine: () => void;
@@ -2105,7 +2106,7 @@ const ActionGridView: React.FC<{
   const { 
     uiState, analyseRhythm, logRhythm, achieveROSC, deliverShock, 
     isAdrenalineAvailable, isAmiodaroneAvailable, isLidocaineAvailable,
-    airwayPlaced, logAirwayPlaced, endArrest 
+    airwayPlaced, endArrest 
   } = useArrest();
   
   return (
