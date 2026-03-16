@@ -1156,13 +1156,13 @@ const NLSSquareTimer: React.FC<{ time: number; totalDuration: number }> = ({ tim
   return (
     <div className={`px-8 py-3 rounded-2xl shadow-sm text-center border-[3px] ${
       isEnding 
-        ? 'border-red-500 bg-white dark:bg-gray-800' 
-        : 'border-blue-500/60 bg-white dark:bg-gray-800'
+        ? 'border-red-500 bg-card' 
+        : 'border-primary/60 bg-card'
     }`}>
-      <div className={`font-mono text-4xl font-bold ${isEnding ? 'text-red-500' : 'text-gray-900 dark:text-white'}`}>
+      <div className={`font-mono text-4xl font-bold ${isEnding ? 'text-red-500' : 'text-foreground'}`}>
         {formatTime(Math.max(0, time))}
       </div>
-      <div className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400">
+      <div className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
         Reassess In
       </div>
     </div>
