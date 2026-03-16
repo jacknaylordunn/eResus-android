@@ -2935,9 +2935,25 @@ const AppContent: React.FC = () => {
     setShowInstallModal(false);
   };
 
+
+  const handleNLSTransition = (data: { events: { timestamp: number; message: string; type: string }[]; startTime: Date; timeOffset: number }) => {
+    // Convert NLS events to arrest Event format
+    const convertedEvents: Event[] = data.events.map(e => ({
+      timestamp: e.timestamp,
+      message: e.message,
+      type: e.type as EventType,
+    }));
+    setShowNewborn(false);
+    // Start arrest with NLS log carried over
+    arrestViewModel.startArrest(convertedEvents, data.timeOffset, data.startTime);
+  };
+
   const renderTab = () => {
     switch (currentTab) {
       case 'arrest':
+        if (showNewborn) {
+          return <NewbornLifeSupport onBack={() => setShowNewborn(false)} onTransitionToALS={handleNLSTransition} />;
+        }
         return <ArrestView onShowPdf={setPdfToShow} onShowNewborn={() => setShowNewborn(true)} />;
       case 'logbook':
         return <LogbookView />;
