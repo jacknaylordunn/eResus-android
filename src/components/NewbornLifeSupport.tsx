@@ -400,6 +400,12 @@ const NewbornLifeSupport: React.FC<NewbornLifeSupportProps> = ({ onBack, onTrans
     setNlsState(state);
     setIsRhythmCheckDue(false);
 
+    // Stop metronome when leaving compressions
+    if (state !== NLSState.Compressions && nlsMetronome.isPlaying) {
+      nlsMetronome.stop();
+      setMetronomeOn(false);
+    }
+
     let dur = 30;
     switch (state) {
       case NLSState.InitialAssessment:
