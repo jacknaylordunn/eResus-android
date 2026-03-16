@@ -1201,7 +1201,7 @@ const WizardCard: React.FC<{
 
 // SpO2 Table — matches iOS SpO2TargetTable
 const SpO2Table: React.FC = () => (
-  <div className="rounded-xl overflow-hidden border-2 border-purple-500 bg-white dark:bg-gray-800 shadow-sm">
+  <div className="rounded-xl overflow-hidden border-2 border-purple-500 bg-card shadow-sm">
     <div className="bg-purple-600 py-2 text-center text-sm font-bold text-white">
       Acceptable Pre-ductal SpO₂
     </div>
