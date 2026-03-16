@@ -977,8 +977,8 @@ const NewbornLifeSupport: React.FC<NewbornLifeSupportProps> = ({ onBack, onTrans
 
             {/* Preterm tasks checklist */}
             {isPreterm && (
-              <div className="p-4 bg-white dark:bg-gray-800 rounded-xl shadow-sm space-y-3">
-                <h3 className="font-semibold text-gray-500 dark:text-gray-400">Preterm &lt; 32 Weeks Tasks</h3>
+              <div className="p-4 bg-card rounded-xl shadow-sm space-y-3">
+                <h3 className="font-semibold text-muted-foreground">Preterm &lt; 32 Weeks Tasks</h3>
                 {nlsPretermTasks.map((task, idx) => (
                   <button key={task.id} onClick={() => {
                     saveUndo();
