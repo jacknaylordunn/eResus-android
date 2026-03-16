@@ -988,12 +988,24 @@ const useArrestViewModel = () => {
   }, [cprCycleDuration]);
 
   // --- Core User Actions ---
-  const startArrest = () => {
+  const startArrest = (priorEvents?: Event[], priorTimeOffset?: number, priorStartTime?: Date) => {
     saveUndoState();
-    startTimeRef.current = new Date();
-    cprCycleStartTimeRef.current = 0; // totalArrestTime is 0 at this point
+    
+    if (priorStartTime) {
+      // Continuing from NLS — carry over start time and events
+      startTimeRef.current = priorStartTime;
+      const elapsed = (Date.now() - priorStartTime.getTime()) / 1000;
+      setTimeOffset(priorTimeOffset ?? 0);
+      setMasterTime(elapsed);
+      setEvents(priorEvents ?? []);
+      cprCycleStartTimeRef.current = elapsed + (priorTimeOffset ?? 0);
+    } else {
+      startTimeRef.current = new Date();
+      cprCycleStartTimeRef.current = 0;
+    }
+    
     setArrestState(ArrestState.Active);
-    logEvent(`Arrest Started at ${new Date().toLocaleTimeString()}`, EventType.Status);
+    logEvent(`${priorStartTime ? 'Transitioned to Paediatric ALS' : 'Arrest Started'} at ${new Date().toLocaleTimeString()}`, EventType.Status);
   };
 
   const analyseRhythm = () => {
