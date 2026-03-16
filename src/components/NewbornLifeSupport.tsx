@@ -1251,8 +1251,8 @@ const NLSEventLog: React.FC<{ events: NLSEvent[] }> = ({ events }) => (
       ) : (
         events.map((e, i) => (
           <div key={i} className="flex">
-            <span className="font-bold w-16 flex-shrink-0 text-blue-600 dark:text-blue-400">[{formatTime(e.timestamp)}]</span>
-            <span className="ml-2 text-gray-800 dark:text-gray-200">{e.message}</span>
+            <span className="font-bold w-16 flex-shrink-0 text-primary">[{formatTime(e.timestamp)}]</span>
+            <span className="ml-2 text-foreground">{e.message}</span>
           </div>
         ))
       )}
