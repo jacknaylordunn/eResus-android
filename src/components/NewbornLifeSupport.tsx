@@ -467,20 +467,30 @@ const NewbornLifeSupport: React.FC<NewbornLifeSupportProps> = ({ onBack, onTrans
 
   const reArrest = () => {
     saveUndo();
-    // iOS: When NLS baby re-arrests after ROSC, transition to Paediatric ALS
     logEvent("Baby Stopped Breathing. Transitioning to Paediatric ALS.", "status");
-    // Save to logbook then navigate back to main view which will start a general arrest
-    saveToLogbook().then(() => {
-      if (timerRef.current) clearInterval(timerRef.current);
-      nlsMetronome.stop();
-      setMetronomeOn(false);
-      localStorage.removeItem(NLS_SESSION_KEY);
-      if (onTransitionToALS) {
-        onTransitionToALS();
-      } else {
-        onBack();
-      }
-    });
+    
+    // Build transition data — carry the entire NLS log into the arrest view
+    const transitionData: NLSTransitionData = {
+      events: [...events, { timestamp: totalArrestTime, message: "Baby Stopped Breathing. Transitioning to Paediatric ALS.", category: "status" } as any].map(e => ({
+        timestamp: e.timestamp,
+        message: e.message,
+        type: e.category ?? 'status',
+      })),
+      startTime: startTimeRef.current!,
+      timeOffset,
+    };
+    
+    // Clean up NLS
+    if (timerRef.current) clearInterval(timerRef.current);
+    nlsMetronome.stop();
+    setMetronomeOn(false);
+    localStorage.removeItem(NLS_SESSION_KEY);
+    
+    if (onTransitionToALS) {
+      onTransitionToALS(transitionData);
+    } else {
+      onBack();
+    }
   };
 
   const reassessPatient = () => {
