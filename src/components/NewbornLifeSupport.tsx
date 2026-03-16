@@ -111,49 +111,110 @@ const nlsPretermTasksTemplate = [
 ];
 
 // ============================================================================
-// METRONOME (3:1 ratio for NLS — 120 events/min)
+// METRONOME (3:1 ratio for NLS — matches iOS precisely)
+// Uses AudioContext lookahead scheduling for rock-solid timing.
+// Pattern: 3 compressions (low tick) + 1 ventilation (high chirp) = 120 events/min
 // ============================================================================
 class NLSMetronome {
   private audioContext: AudioContext | null = null;
-  private timer: ReturnType<typeof setInterval> | null = null;
+  private schedulerTimer: ReturnType<typeof setInterval> | null = null;
   private _isPlaying = false;
-  private beatCount = 0;
+  private nextNoteTime = 0;
+  private beatIndex = 0;
+  private unlocked = false;
 
-  async start() {
-    if (this._isPlaying) return;
-    try {
-      this.audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-      if (this.audioContext.state === 'suspended') await this.audioContext.resume();
-    } catch { return; }
-    
-    this._isPlaying = true;
-    this.beatCount = 0;
-    const interval = 500; // 120 events/min = 500ms each
-    this.playBeat();
-    this.timer = setInterval(() => this.playBeat(), interval);
+  // Lookahead scheduling constants (matches iOS CADisplayLink precision)
+  private readonly SCHEDULE_AHEAD = 0.1; // seconds to schedule ahead
+  private readonly TIMER_INTERVAL = 25;  // ms between scheduler checks
+  private readonly BEAT_INTERVAL = 0.5;  // 120 events/min = 500ms each
+
+  private async initContext() {
+    if (!this.audioContext) {
+      try {
+        this.audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      } catch { return false; }
+    }
+    if (this.audioContext.state === 'suspended') {
+      try { await this.audioContext.resume(); } catch { return false; }
+    }
+    return this.audioContext.state === 'running';
   }
 
-  private playBeat() {
-    if (!this.audioContext || this.audioContext.state !== 'running') return;
+  async unlock() {
+    if (this.unlocked) return true;
+    const ok = await this.initContext();
+    if (ok && this.audioContext) {
+      const osc = this.audioContext.createOscillator();
+      const g = this.audioContext.createGain();
+      g.gain.value = 0;
+      osc.connect(g);
+      g.connect(this.audioContext.destination);
+      osc.start(0);
+      osc.stop(0.001);
+      this.unlocked = true;
+    }
+    return this.unlocked;
+  }
+
+  private scheduleNote(time: number, isBreath: boolean, isAccent: boolean) {
+    if (!this.audioContext) return;
     const ctx = this.audioContext;
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
-    osc.type = 'sine';
-    const isBreath = this.beatCount % 4 === 3;
-    osc.frequency.setValueAtTime(isBreath ? 1200 : 800, ctx.currentTime);
-    gain.gain.setValueAtTime(0.3, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.05);
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.start(ctx.currentTime);
-    osc.stop(ctx.currentTime + 0.05);
-    this.beatCount++;
+
+    if (isBreath) {
+      // Ventilation: higher pitched chirp, slightly longer
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(1200, time);
+      osc.frequency.exponentialRampToValueAtTime(900, time + 0.08);
+      gain.gain.setValueAtTime(0.35, time);
+      gain.gain.exponentialRampToValueAtTime(0.01, time + 0.12);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(time);
+      osc.stop(time + 0.12);
+    } else {
+      // Compression: short, punchy tick
+      osc.type = 'sine';
+      const freq = isAccent ? 880 : 800;
+      const vol = isAccent ? 0.4 : 0.3;
+      osc.frequency.setValueAtTime(freq, time);
+      gain.gain.setValueAtTime(vol, time);
+      gain.gain.exponentialRampToValueAtTime(0.01, time + 0.04);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(time);
+      osc.stop(time + 0.04);
+    }
+  }
+
+  private scheduler = () => {
+    if (!this.audioContext) return;
+    while (this.nextNoteTime < this.audioContext.currentTime + this.SCHEDULE_AHEAD) {
+      const isBreath = this.beatIndex % 4 === 3;
+      const isAccent = this.beatIndex % 4 === 0;
+      this.scheduleNote(this.nextNoteTime, isBreath, isAccent);
+      this.nextNoteTime += this.BEAT_INTERVAL;
+      this.beatIndex++;
+    }
+  };
+
+  async start() {
+    if (this._isPlaying) return;
+    await this.unlock();
+    const ok = await this.initContext();
+    if (!ok || !this.audioContext) return;
+
+    this._isPlaying = true;
+    this.beatIndex = 0;
+    this.nextNoteTime = this.audioContext.currentTime + 0.05; // small offset to start
+    this.schedulerTimer = setInterval(this.scheduler, this.TIMER_INTERVAL);
   }
 
   stop() {
-    if (this.timer) { clearInterval(this.timer); this.timer = null; }
+    if (this.schedulerTimer) { clearInterval(this.schedulerTimer); this.schedulerTimer = null; }
     this._isPlaying = false;
-    if (this.audioContext) { this.audioContext.close().catch(() => {}); this.audioContext = null; }
+    // Don't close context — reuse it for faster restart
   }
 
   get isPlaying() { return this._isPlaying; }
@@ -342,7 +403,8 @@ const NewbornLifeSupport: React.FC<NewbornLifeSupportProps> = ({ onBack, onTrans
       case NLSState.Compressions:
         logEvent("Started Chest Compressions (3:1 Ratio, 100% O₂)", "cpr");
         setFio2('100');
-        // Stop metronome when entering compressions (user can start manually)
+        // Auto-start metronome when entering compressions (matches iOS)
+        nlsMetronome.start().then(() => setMetronomeOn(nlsMetronome.isPlaying));
         break;
     }
 
@@ -586,7 +648,7 @@ const NewbornLifeSupport: React.FC<NewbornLifeSupportProps> = ({ onBack, onTrans
   // RENDER
   // ============================================================================
   return (
-    <div className="flex flex-col h-full bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-white">
+    <div className="flex flex-col h-full bg-background text-foreground">
       {/* ===== HEADER — matches iOS HeaderView for NLS ===== */}
       <div 
         className={`px-4 pt-4 pb-3 shadow-md transition-colors duration-300 ${
@@ -594,20 +656,20 @@ const NewbornLifeSupport: React.FC<NewbornLifeSupportProps> = ({ onBack, onTrans
             ? 'bg-orange-100 dark:bg-orange-900/30' 
             : isDue 
               ? 'bg-red-600 cursor-pointer' 
-              : 'bg-white dark:bg-gray-800'
+              : 'bg-card'
         }`}
         onClick={() => { if (isDue) reassessPatient(); }}
       >
         <div className="flex justify-between items-center mb-2">
           <div className="flex items-center space-x-2">
-            <button onClick={(e) => { e.stopPropagation(); handleBack(); }} className="p-1 text-gray-400 hover:text-gray-700 dark:hover:text-white">
+            <button onClick={(e) => { e.stopPropagation(); handleBack(); }} className="p-1 text-muted-foreground hover:text-foreground">
               <ArrowLeft size={22} />
             </button>
             <div>
               {isDue ? (
                 <h1 className="text-2xl font-bold text-white leading-tight">REASSESS PATIENT</h1>
               ) : (
-                <h1 className="text-3xl font-bold text-gray-900 dark:text-white">eResus</h1>
+                <h1 className="text-3xl font-bold text-foreground">eResus</h1>
               )}
               <span className={`inline-block px-2 py-0.5 rounded-lg text-[10px] font-black uppercase tracking-wider ${
                 isStopped ? 'bg-orange-500 text-white' :
@@ -615,7 +677,7 @@ const NewbornLifeSupport: React.FC<NewbornLifeSupportProps> = ({ onBack, onTrans
                 arrestState === NLSArrestState.Active ? 'bg-red-500 text-white' :
                 arrestState === NLSArrestState.Rosc ? 'bg-green-500 text-white' :
                 arrestState === NLSArrestState.Ended ? 'bg-gray-800 text-white' :
-                'bg-gray-500 text-gray-300'
+                'bg-muted text-muted-foreground'
               }`}>
                 {isStopped ? 'PAUSED' :
                  arrestState === NLSArrestState.Active ? 'ACTIVE' :
@@ -628,13 +690,13 @@ const NewbornLifeSupport: React.FC<NewbornLifeSupportProps> = ({ onBack, onTrans
             <div className="flex items-baseline">
               {timeOffset > 0 && (
                 <span className={`font-mono font-bold text-2xl mr-1 ${
-                  isDue ? 'text-white' : 'text-blue-600 dark:text-blue-400'
+                  isDue ? 'text-white' : 'text-primary'
                 }`}>
                   {Math.floor(timeOffset / 60)}+
                 </span>
               )}
               <span className={`font-mono font-bold text-4xl ${
-                isDue ? 'text-white' : 'text-blue-600 dark:text-blue-400'
+                isDue ? 'text-white' : 'text-primary'
               }`}>
                 {mainTimeSplit.mins}<span className="mx-0.5">:</span>{mainTimeSplit.secs}
               </span>
@@ -646,7 +708,7 @@ const NewbornLifeSupport: React.FC<NewbornLifeSupportProps> = ({ onBack, onTrans
                     className={`px-2 py-0.5 text-xs font-semibold rounded ${
                       isDue 
                         ? 'bg-white/20 text-white' 
-                        : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
+                        : 'bg-muted text-muted-foreground hover:bg-accent'
                     }`}>
                     +{m}m
                   </button>
@@ -659,7 +721,7 @@ const NewbornLifeSupport: React.FC<NewbornLifeSupportProps> = ({ onBack, onTrans
       </div>
 
       {/* ===== MAIN CONTENT ===== */}
-      <div className="flex-grow overflow-y-auto px-4 pb-40 space-y-4 pt-4">
+      <div className="flex-grow overflow-y-auto px-4 pb-40 space-y-4 pt-4 bg-background">
         
         {/* NLS Square Timer (matches iOS NLSSquareTimerView) */}
         {isActive && (
@@ -673,10 +735,10 @@ const NewbornLifeSupport: React.FC<NewbornLifeSupportProps> = ({ onBack, onTrans
         {/* ===== PENDING — Birth type selection ===== */}
         {arrestState === NLSArrestState.Pending && !showRecoveryPrompt && (
           <div className="space-y-4 pt-4">
-            <p className="text-center text-gray-500 dark:text-gray-400 text-sm font-semibold">Select Newborn Type</p>
+            <p className="text-center text-muted-foreground text-sm font-semibold">Select Newborn Type</p>
             <NLSActionButton color="bg-purple-600" label="Term (≥32 Weeks)" onClick={() => startNewborn(false)} height="h-16" fontSize="text-xl" />
             <NLSActionButton color="bg-indigo-500" label="Preterm (<32 Weeks)" onClick={() => startNewborn(true)} height="h-16" fontSize="text-xl" />
-            <button onClick={onBack} className="w-full text-center text-blue-600 dark:text-blue-400 font-semibold py-2">
+            <button onClick={onBack} className="w-full text-center text-primary font-semibold py-2">
               Cancel
             </button>
           </div>
@@ -891,8 +953,8 @@ const NewbornLifeSupport: React.FC<NewbornLifeSupportProps> = ({ onBack, onTrans
             )}
 
             {/* ===== ADVANCED PROCEDURES (matches iOS - always visible during active) ===== */}
-            <div className="p-4 bg-white dark:bg-gray-800 rounded-xl shadow-sm space-y-3">
-              <h3 className="text-center font-semibold text-gray-500 dark:text-gray-400">Advanced Procedures</h3>
+            <div className="p-4 bg-card rounded-xl shadow-sm space-y-3">
+              <h3 className="text-center font-semibold text-muted-foreground">Advanced Procedures</h3>
               <div className="grid grid-cols-2 gap-3">
                 <NLSActionButton color="bg-purple-600" icon={<Droplets size={16} />} label="Vascular Access" 
                   onClick={() => { saveUndo(); setVascularAccess(true); logEvent("Vascular Access Secured"); }}
@@ -915,8 +977,8 @@ const NewbornLifeSupport: React.FC<NewbornLifeSupportProps> = ({ onBack, onTrans
 
             {/* Preterm tasks checklist */}
             {isPreterm && (
-              <div className="p-4 bg-white dark:bg-gray-800 rounded-xl shadow-sm space-y-3">
-                <h3 className="font-semibold text-gray-500 dark:text-gray-400">Preterm &lt; 32 Weeks Tasks</h3>
+              <div className="p-4 bg-card rounded-xl shadow-sm space-y-3">
+                <h3 className="font-semibold text-muted-foreground">Preterm &lt; 32 Weeks Tasks</h3>
                 {nlsPretermTasks.map((task, idx) => (
                   <button key={task.id} onClick={() => {
                     saveUndo();
@@ -962,7 +1024,7 @@ const NewbornLifeSupport: React.FC<NewbornLifeSupportProps> = ({ onBack, onTrans
 
       {/* ===== BOTTOM CONTROLS (matches iOS BottomControlsView) ===== */}
       {arrestState !== NLSArrestState.Pending && (
-        <div className="fixed bottom-0 left-0 right-0 p-3 pb-[72px] bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border-t border-gray-200 dark:border-gray-700 z-10">
+        <div className="fixed bottom-0 left-0 right-0 p-3 pb-[72px] bg-background/80 backdrop-blur-md border-t border-border z-10">
           <div className="flex space-x-3">
             {isStopped ? (
               <>
@@ -1094,13 +1156,13 @@ const NLSSquareTimer: React.FC<{ time: number; totalDuration: number }> = ({ tim
   return (
     <div className={`px-8 py-3 rounded-2xl shadow-sm text-center border-[3px] ${
       isEnding 
-        ? 'border-red-500 bg-white dark:bg-gray-800' 
-        : 'border-blue-500/60 bg-white dark:bg-gray-800'
+        ? 'border-red-500 bg-card' 
+        : 'border-primary/60 bg-card'
     }`}>
-      <div className={`font-mono text-4xl font-bold ${isEnding ? 'text-red-500' : 'text-gray-900 dark:text-white'}`}>
+      <div className={`font-mono text-4xl font-bold ${isEnding ? 'text-red-500' : 'text-foreground'}`}>
         {formatTime(Math.max(0, time))}
       </div>
-      <div className="text-[10px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400">
+      <div className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
         Reassess In
       </div>
     </div>
@@ -1115,22 +1177,22 @@ const WizardCard: React.FC<{
   question: string;
   actions: React.ReactNode;
 }> = ({ label, title, bullets, question, actions }) => (
-  <div className="p-4 bg-white dark:bg-gray-800 rounded-2xl shadow-sm space-y-3">
-    <p className="text-xs font-black uppercase tracking-wider text-gray-500 dark:text-gray-400">{label}</p>
-    <h2 className="text-xl font-extrabold leading-tight text-gray-900 dark:text-white">{title}</h2>
+  <div className="p-4 bg-card rounded-2xl shadow-sm space-y-3">
+    <p className="text-xs font-black uppercase tracking-wider text-muted-foreground">{label}</p>
+    <h2 className="text-xl font-extrabold leading-tight text-foreground">{title}</h2>
     {bullets.length > 0 && (
       <div className="space-y-2 pt-1">
         {bullets.map((b, i) => (
           <div key={i} className="flex items-start space-x-2 text-sm">
             <ChevronRight size={10} className="text-purple-500 mt-1.5 flex-shrink-0 font-black" />
-            <span className="text-gray-700 dark:text-gray-300" dangerouslySetInnerHTML={{ __html: b }} />
+            <span className="text-muted-foreground" dangerouslySetInnerHTML={{ __html: b }} />
           </div>
         ))}
       </div>
     )}
     {question && (
-      <div className="border-t border-gray-200 dark:border-gray-700 pt-3">
-        <p className="text-sm font-bold text-center mb-3 text-gray-900 dark:text-white">{question}</p>
+      <div className="border-t border-border pt-3">
+        <p className="text-sm font-bold text-center mb-3 text-foreground">{question}</p>
       </div>
     )}
     {actions}
@@ -1139,19 +1201,19 @@ const WizardCard: React.FC<{
 
 // SpO2 Table — matches iOS SpO2TargetTable
 const SpO2Table: React.FC = () => (
-  <div className="rounded-xl overflow-hidden border-2 border-purple-500 bg-white dark:bg-gray-800 shadow-sm">
+  <div className="rounded-xl overflow-hidden border-2 border-purple-500 bg-card shadow-sm">
     <div className="bg-purple-600 py-2 text-center text-sm font-bold text-white">
       Acceptable Pre-ductal SpO₂
     </div>
     <div>
       {getSpO2Targets().map((t, i) => (
-        <div key={t.time} className={`flex ${i < getSpO2Targets().length - 1 ? 'border-b border-gray-200 dark:border-gray-700' : ''}`}>
-          <div className="flex-1 py-2 text-center text-sm text-gray-700 dark:text-gray-300 border-r border-gray-200 dark:border-gray-700">{t.time}</div>
-          <div className="flex-1 py-2 text-center text-sm text-gray-700 dark:text-gray-300">{t.target}</div>
+        <div key={t.time} className={`flex ${i < getSpO2Targets().length - 1 ? 'border-b border-border' : ''}`}>
+          <div className="flex-1 py-2 text-center text-sm text-muted-foreground border-r border-border">{t.time}</div>
+          <div className="flex-1 py-2 text-center text-sm text-muted-foreground">{t.target}</div>
         </div>
       ))}
     </div>
-    <div className="py-1.5 text-center text-xs italic text-gray-500 dark:text-gray-400 border-t border-gray-200 dark:border-gray-700">
+    <div className="py-1.5 text-center text-xs italic text-muted-foreground border-t border-border">
       Titrate O₂ to achieve target SpO₂
     </div>
   </div>
@@ -1181,16 +1243,16 @@ const NLSActionButton: React.FC<{
 
 // Event Log
 const NLSEventLog: React.FC<{ events: NLSEvent[] }> = ({ events }) => (
-  <div className="p-4 bg-white dark:bg-gray-800 rounded-xl shadow-sm space-y-3">
-    <h3 className="font-semibold text-gray-500 dark:text-gray-400">Event Log</h3>
+  <div className="p-4 bg-card rounded-xl shadow-sm space-y-3">
+    <h3 className="font-semibold text-muted-foreground">Event Log</h3>
     <div className="space-y-2 max-h-60 overflow-y-auto font-mono text-sm">
       {events.length === 0 ? (
-        <p className="text-gray-400 dark:text-gray-500 italic">No events logged yet.</p>
+        <p className="text-muted-foreground italic">No events logged yet.</p>
       ) : (
         events.map((e, i) => (
           <div key={i} className="flex">
-            <span className="font-bold w-16 flex-shrink-0 text-blue-600 dark:text-blue-400">[{formatTime(e.timestamp)}]</span>
-            <span className="ml-2 text-gray-800 dark:text-gray-200">{e.message}</span>
+            <span className="font-bold w-16 flex-shrink-0 text-primary">[{formatTime(e.timestamp)}]</span>
+            <span className="ml-2 text-foreground">{e.message}</span>
           </div>
         ))
       )}
@@ -1203,10 +1265,10 @@ const NLSModal: React.FC<{ isOpen: boolean; onClose: () => void; title: string; 
   if (!isOpen) return null;
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-md mx-auto overflow-hidden" onClick={e => e.stopPropagation()}>
-        <div className="flex justify-between items-center p-4 border-b border-gray-200 dark:border-gray-700">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">{title}</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"><XSquare size={24} /></button>
+      <div className="bg-card rounded-2xl shadow-xl w-full max-w-md mx-auto overflow-hidden" onClick={e => e.stopPropagation()}>
+        <div className="flex justify-between items-center p-4 border-b border-border">
+          <h2 className="text-lg font-semibold text-foreground">{title}</h2>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground"><XSquare size={24} /></button>
         </div>
         <div className="p-4 overflow-y-auto max-h-[70vh]">{children}</div>
       </div>

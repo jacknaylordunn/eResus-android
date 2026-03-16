@@ -1766,7 +1766,7 @@ const ActionButton: React.FC<ActionButtonProps> = ({
 
 // --- Header & Timers ---
 const HeaderView: React.FC = () => {
-  const { arrestState, masterTime, timeOffset, addTimeOffset, cprTime, uiState, isTimerPaused, analyseRhythm } = useArrest();
+  const { arrestState, masterTime, timeOffset, totalArrestTime, addTimeOffset, cprTime, uiState, isTimerPaused, analyseRhythm } = useArrest();
   
   const isRhythmCheckDue = arrestState === ArrestState.Active && uiState === UIState.Default && cprTime <= 0;
   
@@ -1826,7 +1826,7 @@ const HeaderView: React.FC = () => {
             <span className={`font-mono font-bold text-4xl ${
               isRhythmCheckDue && !isTimerPaused ? 'text-white' : 'text-blue-600 dark:text-blue-400'
             }`}>
-              {TimeFormatter.format(masterTime)}
+              {TimeFormatter.format(masterTime + timeOffset)}
             </span>
           </div>
           {(arrestState === ArrestState.Active || arrestState === ArrestState.Pending) && !isTimerPaused && (
