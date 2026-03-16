@@ -1185,7 +1185,7 @@ const WizardCard: React.FC<{
         {bullets.map((b, i) => (
           <div key={i} className="flex items-start space-x-2 text-sm">
             <ChevronRight size={10} className="text-purple-500 mt-1.5 flex-shrink-0 font-black" />
-            <span className="text-gray-700 dark:text-gray-300" dangerouslySetInnerHTML={{ __html: b }} />
+            <span className="text-muted-foreground" dangerouslySetInnerHTML={{ __html: b }} />
           </div>
         ))}
       </div>
