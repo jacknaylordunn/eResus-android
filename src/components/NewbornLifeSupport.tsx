@@ -226,9 +226,15 @@ const nlsMetronome = new NLSMetronome();
 // MAIN COMPONENT
 // ============================================================================
 
+interface NLSTransitionData {
+  events: { timestamp: number; message: string; type: string }[];
+  startTime: Date;
+  timeOffset: number;
+}
+
 interface NewbornLifeSupportProps {
   onBack: () => void;
-  onTransitionToALS?: () => void; // Called when NLS re-arrest transitions to Paediatric ALS
+  onTransitionToALS?: (data: NLSTransitionData) => void;
 }
 
 const NewbornLifeSupport: React.FC<NewbornLifeSupportProps> = ({ onBack, onTransitionToALS }) => {
@@ -461,20 +467,30 @@ const NewbornLifeSupport: React.FC<NewbornLifeSupportProps> = ({ onBack, onTrans
 
   const reArrest = () => {
     saveUndo();
-    // iOS: When NLS baby re-arrests after ROSC, transition to Paediatric ALS
     logEvent("Baby Stopped Breathing. Transitioning to Paediatric ALS.", "status");
-    // Save to logbook then navigate back to main view which will start a general arrest
-    saveToLogbook().then(() => {
-      if (timerRef.current) clearInterval(timerRef.current);
-      nlsMetronome.stop();
-      setMetronomeOn(false);
-      localStorage.removeItem(NLS_SESSION_KEY);
-      if (onTransitionToALS) {
-        onTransitionToALS();
-      } else {
-        onBack();
-      }
-    });
+    
+    // Build transition data — carry the entire NLS log into the arrest view
+    const transitionData: NLSTransitionData = {
+      events: [...events, { timestamp: totalArrestTime, message: "Baby Stopped Breathing. Transitioning to Paediatric ALS.", category: "status" } as any].map(e => ({
+        timestamp: e.timestamp,
+        message: e.message,
+        type: e.category ?? 'status',
+      })),
+      startTime: startTimeRef.current!,
+      timeOffset,
+    };
+    
+    // Clean up NLS
+    if (timerRef.current) clearInterval(timerRef.current);
+    nlsMetronome.stop();
+    setMetronomeOn(false);
+    localStorage.removeItem(NLS_SESSION_KEY);
+    
+    if (onTransitionToALS) {
+      onTransitionToALS(transitionData);
+    } else {
+      onBack();
+    }
   };
 
   const reassessPatient = () => {
@@ -661,10 +677,7 @@ const NewbornLifeSupport: React.FC<NewbornLifeSupportProps> = ({ onBack, onTrans
         onClick={() => { if (isDue) reassessPatient(); }}
       >
         <div className="flex justify-between items-center mb-2">
-          <div className="flex items-center space-x-2">
-            <button onClick={(e) => { e.stopPropagation(); handleBack(); }} className="p-1 text-muted-foreground hover:text-foreground">
-              <ArrowLeft size={22} />
-            </button>
+          <div>
             <div>
               {isDue ? (
                 <h1 className="text-2xl font-bold text-white leading-tight">REASSESS PATIENT</h1>
@@ -739,7 +752,7 @@ const NewbornLifeSupport: React.FC<NewbornLifeSupportProps> = ({ onBack, onTrans
             <NLSActionButton color="bg-purple-600" label="Term (≥32 Weeks)" onClick={() => startNewborn(false)} height="h-16" fontSize="text-xl" />
             <NLSActionButton color="bg-indigo-500" label="Preterm (<32 Weeks)" onClick={() => startNewborn(true)} height="h-16" fontSize="text-xl" />
             <button onClick={onBack} className="w-full text-center text-primary font-semibold py-2">
-              Cancel
+              Back to Arrest View
             </button>
           </div>
         )}
