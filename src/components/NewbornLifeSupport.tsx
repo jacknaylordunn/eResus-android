@@ -953,8 +953,8 @@ const NewbornLifeSupport: React.FC<NewbornLifeSupportProps> = ({ onBack, onTrans
             )}
 
             {/* ===== ADVANCED PROCEDURES (matches iOS - always visible during active) ===== */}
-            <div className="p-4 bg-white dark:bg-gray-800 rounded-xl shadow-sm space-y-3">
-              <h3 className="text-center font-semibold text-gray-500 dark:text-gray-400">Advanced Procedures</h3>
+            <div className="p-4 bg-card rounded-xl shadow-sm space-y-3">
+              <h3 className="text-center font-semibold text-muted-foreground">Advanced Procedures</h3>
               <div className="grid grid-cols-2 gap-3">
                 <NLSActionButton color="bg-purple-600" icon={<Droplets size={16} />} label="Vascular Access" 
                   onClick={() => { saveUndo(); setVascularAccess(true); logEvent("Vascular Access Secured"); }}
