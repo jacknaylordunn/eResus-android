@@ -1207,9 +1207,9 @@ const SpO2Table: React.FC = () => (
     </div>
     <div>
       {getSpO2Targets().map((t, i) => (
-        <div key={t.time} className={`flex ${i < getSpO2Targets().length - 1 ? 'border-b border-gray-200 dark:border-gray-700' : ''}`}>
-          <div className="flex-1 py-2 text-center text-sm text-gray-700 dark:text-gray-300 border-r border-gray-200 dark:border-gray-700">{t.time}</div>
-          <div className="flex-1 py-2 text-center text-sm text-gray-700 dark:text-gray-300">{t.target}</div>
+        <div key={t.time} className={`flex ${i < getSpO2Targets().length - 1 ? 'border-b border-border' : ''}`}>
+          <div className="flex-1 py-2 text-center text-sm text-muted-foreground border-r border-border">{t.time}</div>
+          <div className="flex-1 py-2 text-center text-sm text-muted-foreground">{t.target}</div>
         </div>
       ))}
     </div>
