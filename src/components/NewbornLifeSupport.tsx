@@ -226,9 +226,15 @@ const nlsMetronome = new NLSMetronome();
 // MAIN COMPONENT
 // ============================================================================
 
+interface NLSTransitionData {
+  events: { timestamp: number; message: string; type: string }[];
+  startTime: Date;
+  timeOffset: number;
+}
+
 interface NewbornLifeSupportProps {
   onBack: () => void;
-  onTransitionToALS?: () => void; // Called when NLS re-arrest transitions to Paediatric ALS
+  onTransitionToALS?: (data: NLSTransitionData) => void;
 }
 
 const NewbornLifeSupport: React.FC<NewbornLifeSupportProps> = ({ onBack, onTransitionToALS }) => {
