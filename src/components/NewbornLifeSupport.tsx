@@ -1024,7 +1024,7 @@ const NewbornLifeSupport: React.FC<NewbornLifeSupportProps> = ({ onBack, onTrans
 
       {/* ===== BOTTOM CONTROLS (matches iOS BottomControlsView) ===== */}
       {arrestState !== NLSArrestState.Pending && (
-        <div className="fixed bottom-0 left-0 right-0 p-3 pb-[72px] bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border-t border-gray-200 dark:border-gray-700 z-10">
+        <div className="fixed bottom-0 left-0 right-0 p-3 pb-[72px] bg-background/80 backdrop-blur-md border-t border-border z-10">
           <div className="flex space-x-3">
             {isStopped ? (
               <>
