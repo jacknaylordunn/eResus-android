@@ -1247,7 +1247,7 @@ const NLSEventLog: React.FC<{ events: NLSEvent[] }> = ({ events }) => (
     <h3 className="font-semibold text-muted-foreground">Event Log</h3>
     <div className="space-y-2 max-h-60 overflow-y-auto font-mono text-sm">
       {events.length === 0 ? (
-        <p className="text-gray-400 dark:text-gray-500 italic">No events logged yet.</p>
+        <p className="text-muted-foreground italic">No events logged yet.</p>
       ) : (
         events.map((e, i) => (
           <div key={i} className="flex">
