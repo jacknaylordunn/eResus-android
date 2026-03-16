@@ -656,20 +656,20 @@ const NewbornLifeSupport: React.FC<NewbornLifeSupportProps> = ({ onBack, onTrans
             ? 'bg-orange-100 dark:bg-orange-900/30' 
             : isDue 
               ? 'bg-red-600 cursor-pointer' 
-              : 'bg-white dark:bg-gray-800'
+              : 'bg-card'
         }`}
         onClick={() => { if (isDue) reassessPatient(); }}
       >
         <div className="flex justify-between items-center mb-2">
           <div className="flex items-center space-x-2">
-            <button onClick={(e) => { e.stopPropagation(); handleBack(); }} className="p-1 text-gray-400 hover:text-gray-700 dark:hover:text-white">
+            <button onClick={(e) => { e.stopPropagation(); handleBack(); }} className="p-1 text-muted-foreground hover:text-foreground">
               <ArrowLeft size={22} />
             </button>
             <div>
               {isDue ? (
                 <h1 className="text-2xl font-bold text-white leading-tight">REASSESS PATIENT</h1>
               ) : (
-                <h1 className="text-3xl font-bold text-gray-900 dark:text-white">eResus</h1>
+                <h1 className="text-3xl font-bold text-foreground">eResus</h1>
               )}
               <span className={`inline-block px-2 py-0.5 rounded-lg text-[10px] font-black uppercase tracking-wider ${
                 isStopped ? 'bg-orange-500 text-white' :
@@ -677,7 +677,7 @@ const NewbornLifeSupport: React.FC<NewbornLifeSupportProps> = ({ onBack, onTrans
                 arrestState === NLSArrestState.Active ? 'bg-red-500 text-white' :
                 arrestState === NLSArrestState.Rosc ? 'bg-green-500 text-white' :
                 arrestState === NLSArrestState.Ended ? 'bg-gray-800 text-white' :
-                'bg-gray-500 text-gray-300'
+                'bg-muted text-muted-foreground'
               }`}>
                 {isStopped ? 'PAUSED' :
                  arrestState === NLSArrestState.Active ? 'ACTIVE' :
@@ -690,13 +690,13 @@ const NewbornLifeSupport: React.FC<NewbornLifeSupportProps> = ({ onBack, onTrans
             <div className="flex items-baseline">
               {timeOffset > 0 && (
                 <span className={`font-mono font-bold text-2xl mr-1 ${
-                  isDue ? 'text-white' : 'text-blue-600 dark:text-blue-400'
+                  isDue ? 'text-white' : 'text-primary'
                 }`}>
                   {Math.floor(timeOffset / 60)}+
                 </span>
               )}
               <span className={`font-mono font-bold text-4xl ${
-                isDue ? 'text-white' : 'text-blue-600 dark:text-blue-400'
+                isDue ? 'text-white' : 'text-primary'
               }`}>
                 {mainTimeSplit.mins}<span className="mx-0.5">:</span>{mainTimeSplit.secs}
               </span>
@@ -708,7 +708,7 @@ const NewbornLifeSupport: React.FC<NewbornLifeSupportProps> = ({ onBack, onTrans
                     className={`px-2 py-0.5 text-xs font-semibold rounded ${
                       isDue 
                         ? 'bg-white/20 text-white' 
-                        : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
+                        : 'bg-muted text-muted-foreground hover:bg-accent'
                     }`}>
                     +{m}m
                   </button>
