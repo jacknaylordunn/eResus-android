@@ -721,7 +721,7 @@ const NewbornLifeSupport: React.FC<NewbornLifeSupportProps> = ({ onBack, onTrans
       </div>
 
       {/* ===== MAIN CONTENT ===== */}
-      <div className="flex-grow overflow-y-auto px-4 pb-40 space-y-4 pt-4">
+      <div className="flex-grow overflow-y-auto px-4 pb-40 space-y-4 pt-4 bg-background">
         
         {/* NLS Square Timer (matches iOS NLSSquareTimerView) */}
         {isActive && (
