@@ -1243,8 +1243,8 @@ const NLSActionButton: React.FC<{
 
 // Event Log
 const NLSEventLog: React.FC<{ events: NLSEvent[] }> = ({ events }) => (
-  <div className="p-4 bg-white dark:bg-gray-800 rounded-xl shadow-sm space-y-3">
-    <h3 className="font-semibold text-gray-500 dark:text-gray-400">Event Log</h3>
+  <div className="p-4 bg-card rounded-xl shadow-sm space-y-3">
+    <h3 className="font-semibold text-muted-foreground">Event Log</h3>
     <div className="space-y-2 max-h-60 overflow-y-auto font-mono text-sm">
       {events.length === 0 ? (
         <p className="text-gray-400 dark:text-gray-500 italic">No events logged yet.</p>
