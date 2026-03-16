@@ -677,10 +677,7 @@ const NewbornLifeSupport: React.FC<NewbornLifeSupportProps> = ({ onBack, onTrans
         onClick={() => { if (isDue) reassessPatient(); }}
       >
         <div className="flex justify-between items-center mb-2">
-          <div className="flex items-center space-x-2">
-            <button onClick={(e) => { e.stopPropagation(); handleBack(); }} className="p-1 text-muted-foreground hover:text-foreground">
-              <ArrowLeft size={22} />
-            </button>
+          <div>
             <div>
               {isDue ? (
                 <h1 className="text-2xl font-bold text-white leading-tight">REASSESS PATIENT</h1>
