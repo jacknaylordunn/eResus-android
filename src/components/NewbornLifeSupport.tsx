@@ -357,6 +357,7 @@ const NewbornLifeSupport: React.FC<NewbornLifeSupportProps> = ({ onBack, onTrans
   const undo = () => {
     if (undoStack.length === 0) return;
     const last = undoStack[undoStack.length - 1];
+    setArrestState(last.arrestState);
     setNlsState(last.nlsState);
     setEvents(last.events);
     setAdrenalineCount(last.adrenalineCount);
@@ -370,6 +371,13 @@ const NewbornLifeSupport: React.FC<NewbornLifeSupportProps> = ({ onBack, onTrans
     setAirwayPlaced(last.airwayPlaced ?? false);
     cprCycleStartTimeRef.current = last.cprCycleStartTime;
     setUndoStack(prev => prev.slice(0, -1));
+    // If undoing back to compressions, restart metronome; otherwise stop it
+    if (last.nlsState === NLSState.Compressions && last.arrestState === NLSArrestState.Active) {
+      nlsMetronome.start().then(() => setMetronomeOn(nlsMetronome.isPlaying));
+    } else {
+      nlsMetronome.stop();
+      setMetronomeOn(false);
+    }
     if (navigator.vibrate) navigator.vibrate(10);
   };
 
