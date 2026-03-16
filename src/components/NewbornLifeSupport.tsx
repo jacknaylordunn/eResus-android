@@ -1191,8 +1191,8 @@ const WizardCard: React.FC<{
       </div>
     )}
     {question && (
-      <div className="border-t border-gray-200 dark:border-gray-700 pt-3">
-        <p className="text-sm font-bold text-center mb-3 text-gray-900 dark:text-white">{question}</p>
+      <div className="border-t border-border pt-3">
+        <p className="text-sm font-bold text-center mb-3 text-foreground">{question}</p>
       </div>
     )}
     {actions}
