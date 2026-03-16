@@ -2946,41 +2946,61 @@ const AppContent: React.FC = () => {
     }
   };
 
+  const handleNLSTransition = (data: { events: { timestamp: number; message: string; type: string }[]; startTime: Date; timeOffset: number }) => {
+    // Convert NLS events to arrest Event format
+    const convertedEvents: Event[] = data.events.map(e => ({
+      timestamp: e.timestamp,
+      message: e.message,
+      type: e.type as EventType,
+    }));
+    setShowNewborn(false);
+    // Start arrest with NLS log carried over
+    arrestViewModel.startArrest(convertedEvents, data.timeOffset, data.startTime);
+  };
+
+  const renderTab = () => {
+    switch (currentTab) {
+      case 'arrest':
+        if (showNewborn) {
+          return <NewbornLifeSupport onBack={() => setShowNewborn(false)} onTransitionToALS={handleNLSTransition} />;
+        }
+        return <ArrestView onShowPdf={setPdfToShow} onShowNewborn={() => setShowNewborn(true)} />;
+      case 'logbook':
+        return <LogbookView />;
+      case 'settings':
+        return <SettingsView />;
+    }
+  };
+
   return (
     <ArrestContext.Provider value={arrestViewModel}>
-      <div className="h-screen w-screen flex flex-col font-sans bg-white dark:bg-gray-900">
-        {showNewborn ? (
-          <NewbornLifeSupport onBack={() => setShowNewborn(false)} onTransitionToALS={() => { setShowNewborn(false); arrestViewModel.startArrest(); }} />
-        ) : (
-          <>
-            {/* Main Content */}
-            <main className="flex-grow overflow-hidden">
-              {renderTab()}
-            </main>
-            
-            {/* Tab Bar */}
-            <nav className="flex justify-around p-2 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 z-20">
-              <TabButton
-                label="Arrest"
-                icon={<HeartPulse size={24} />}
-                isActive={currentTab === 'arrest'}
-                onClick={() => setCurrentTab('arrest')}
-              />
-              <TabButton
-                label="Logbook"
-                icon={<Book size={24} />}
-                isActive={currentTab === 'logbook'}
-                onClick={() => setCurrentTab('logbook')}
-              />
-              <TabButton
-                label="Settings"
-                icon={<Settings size={24} />}
-                isActive={currentTab === 'settings'}
-                onClick={() => setCurrentTab('settings')}
-              />
-            </nav>
-          </>
-        )}
+      <div className="h-screen w-screen flex flex-col font-sans bg-background">
+        {/* Main Content */}
+        <main className="flex-grow overflow-hidden">
+          {renderTab()}
+        </main>
+        
+        {/* Tab Bar — always visible (matches iOS) */}
+        <nav className="flex justify-around p-2 bg-card border-t border-border z-20">
+          <TabButton
+            label="Arrest"
+            icon={<HeartPulse size={24} />}
+            isActive={currentTab === 'arrest'}
+            onClick={() => setCurrentTab('arrest')}
+          />
+          <TabButton
+            label="Logbook"
+            icon={<Book size={24} />}
+            isActive={currentTab === 'logbook'}
+            onClick={() => setCurrentTab('logbook')}
+          />
+          <TabButton
+            label="Settings"
+            icon={<Settings size={24} />}
+            isActive={currentTab === 'settings'}
+            onClick={() => setCurrentTab('settings')}
+          />
+        </nav>
 
         {/* Modals */}
         {pdfToShow && <PDFView pdf={pdfToShow} onClose={() => setPdfToShow(null)} />}
