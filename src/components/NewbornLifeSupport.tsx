@@ -1177,9 +1177,9 @@ const WizardCard: React.FC<{
   question: string;
   actions: React.ReactNode;
 }> = ({ label, title, bullets, question, actions }) => (
-  <div className="p-4 bg-white dark:bg-gray-800 rounded-2xl shadow-sm space-y-3">
-    <p className="text-xs font-black uppercase tracking-wider text-gray-500 dark:text-gray-400">{label}</p>
-    <h2 className="text-xl font-extrabold leading-tight text-gray-900 dark:text-white">{title}</h2>
+  <div className="p-4 bg-card rounded-2xl shadow-sm space-y-3">
+    <p className="text-xs font-black uppercase tracking-wider text-muted-foreground">{label}</p>
+    <h2 className="text-xl font-extrabold leading-tight text-foreground">{title}</h2>
     {bullets.length > 0 && (
       <div className="space-y-2 pt-1">
         {bullets.map((b, i) => (
