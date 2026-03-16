@@ -752,7 +752,7 @@ const NewbornLifeSupport: React.FC<NewbornLifeSupportProps> = ({ onBack, onTrans
             <NLSActionButton color="bg-purple-600" label="Term (≥32 Weeks)" onClick={() => startNewborn(false)} height="h-16" fontSize="text-xl" />
             <NLSActionButton color="bg-indigo-500" label="Preterm (<32 Weeks)" onClick={() => startNewborn(true)} height="h-16" fontSize="text-xl" />
             <button onClick={onBack} className="w-full text-center text-primary font-semibold py-2">
-              Cancel
+              Back to Arrest View
             </button>
           </div>
         )}
