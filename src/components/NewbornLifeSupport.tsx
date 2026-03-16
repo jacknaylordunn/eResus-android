@@ -1213,7 +1213,7 @@ const SpO2Table: React.FC = () => (
         </div>
       ))}
     </div>
-    <div className="py-1.5 text-center text-xs italic text-gray-500 dark:text-gray-400 border-t border-gray-200 dark:border-gray-700">
+    <div className="py-1.5 text-center text-xs italic text-muted-foreground border-t border-border">
       Titrate O₂ to achieve target SpO₂
     </div>
   </div>
