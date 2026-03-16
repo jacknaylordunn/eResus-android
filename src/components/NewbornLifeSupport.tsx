@@ -119,14 +119,19 @@ class NLSMetronome {
   private audioContext: AudioContext | null = null;
   private schedulerTimer: ReturnType<typeof setInterval> | null = null;
   private _isPlaying = false;
-  private nextNoteTime = 0;
-  private beatIndex = 0;
+  private nextCycleTime = 0;
   private unlocked = false;
 
-  // Lookahead scheduling constants (matches iOS CADisplayLink precision)
-  private readonly SCHEDULE_AHEAD = 0.1; // seconds to schedule ahead
-  private readonly TIMER_INTERVAL = 25;  // ms between scheduler checks
-  private readonly BEAT_INTERVAL = 0.5;  // 120 events/min = 500ms each
+  // Lookahead scheduling constants
+  private readonly SCHEDULE_AHEAD = 0.15; // seconds to schedule ahead
+  private readonly TIMER_INTERVAL = 25;   // ms between scheduler checks
+
+  // 3:1 NLS rhythm: 2-second cycle
+  // 3 compressions in first ~1s (at 0, 0.33, 0.66s) then 1 breath (~1.0s mark)
+  // Total cycle = 2.0s → effective compression rate ~180/min
+  private readonly CYCLE_DURATION = 2.0;
+  private readonly COMPRESSION_TIMES = [0, 0.333, 0.666]; // relative to cycle start
+  private readonly BREATH_TIME = 1.0; // relative to cycle start
 
   private async initContext() {
     if (!this.audioContext) {
@@ -156,46 +161,50 @@ class NLSMetronome {
     return this.unlocked;
   }
 
-  private scheduleNote(time: number, isBreath: boolean, isAccent: boolean) {
+  private scheduleCompression(time: number, isAccent: boolean) {
     if (!this.audioContext) return;
     const ctx = this.audioContext;
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
+    osc.type = 'sine';
+    const freq = isAccent ? 880 : 800;
+    const vol = isAccent ? 0.45 : 0.3;
+    osc.frequency.setValueAtTime(freq, time);
+    gain.gain.setValueAtTime(vol, time);
+    gain.gain.exponentialRampToValueAtTime(0.01, time + 0.05);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(time);
+    osc.stop(time + 0.05);
+  }
 
-    if (isBreath) {
-      // Ventilation: higher pitched chirp, slightly longer
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(1200, time);
-      osc.frequency.exponentialRampToValueAtTime(900, time + 0.08);
-      gain.gain.setValueAtTime(0.35, time);
-      gain.gain.exponentialRampToValueAtTime(0.01, time + 0.12);
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start(time);
-      osc.stop(time + 0.12);
-    } else {
-      // Compression: short, punchy tick
-      osc.type = 'sine';
-      const freq = isAccent ? 880 : 800;
-      const vol = isAccent ? 0.4 : 0.3;
-      osc.frequency.setValueAtTime(freq, time);
-      gain.gain.setValueAtTime(vol, time);
-      gain.gain.exponentialRampToValueAtTime(0.01, time + 0.04);
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start(time);
-      osc.stop(time + 0.04);
-    }
+  private scheduleBreath(time: number) {
+    if (!this.audioContext) return;
+    const ctx = this.audioContext;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(1200, time);
+    osc.frequency.exponentialRampToValueAtTime(800, time + 0.15);
+    gain.gain.setValueAtTime(0.4, time);
+    gain.gain.exponentialRampToValueAtTime(0.01, time + 0.2);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(time);
+    osc.stop(time + 0.2);
   }
 
   private scheduler = () => {
     if (!this.audioContext) return;
-    while (this.nextNoteTime < this.audioContext.currentTime + this.SCHEDULE_AHEAD) {
-      const isBreath = this.beatIndex % 4 === 3;
-      const isAccent = this.beatIndex % 4 === 0;
-      this.scheduleNote(this.nextNoteTime, isBreath, isAccent);
-      this.nextNoteTime += this.BEAT_INTERVAL;
-      this.beatIndex++;
+    const now = this.audioContext.currentTime;
+    while (this.nextCycleTime < now + this.SCHEDULE_AHEAD) {
+      // Schedule 3 compressions
+      this.COMPRESSION_TIMES.forEach((offset, i) => {
+        this.scheduleCompression(this.nextCycleTime + offset, i === 0);
+      });
+      // Schedule 1 breath
+      this.scheduleBreath(this.nextCycleTime + this.BREATH_TIME);
+      this.nextCycleTime += this.CYCLE_DURATION;
     }
   };
 
@@ -206,15 +215,13 @@ class NLSMetronome {
     if (!ok || !this.audioContext) return;
 
     this._isPlaying = true;
-    this.beatIndex = 0;
-    this.nextNoteTime = this.audioContext.currentTime + 0.05; // small offset to start
+    this.nextCycleTime = this.audioContext.currentTime + 0.05;
     this.schedulerTimer = setInterval(this.scheduler, this.TIMER_INTERVAL);
   }
 
   stop() {
     if (this.schedulerTimer) { clearInterval(this.schedulerTimer); this.schedulerTimer = null; }
     this._isPlaying = false;
-    // Don't close context — reuse it for faster restart
   }
 
   get isPlaying() { return this._isPlaying; }
@@ -350,6 +357,7 @@ const NewbornLifeSupport: React.FC<NewbornLifeSupportProps> = ({ onBack, onTrans
   const undo = () => {
     if (undoStack.length === 0) return;
     const last = undoStack[undoStack.length - 1];
+    setArrestState(last.arrestState);
     setNlsState(last.nlsState);
     setEvents(last.events);
     setAdrenalineCount(last.adrenalineCount);
@@ -363,6 +371,13 @@ const NewbornLifeSupport: React.FC<NewbornLifeSupportProps> = ({ onBack, onTrans
     setAirwayPlaced(last.airwayPlaced ?? false);
     cprCycleStartTimeRef.current = last.cprCycleStartTime;
     setUndoStack(prev => prev.slice(0, -1));
+    // If undoing back to compressions, restart metronome; otherwise stop it
+    if (last.nlsState === NLSState.Compressions && last.arrestState === NLSArrestState.Active) {
+      nlsMetronome.start().then(() => setMetronomeOn(nlsMetronome.isPlaying));
+    } else {
+      nlsMetronome.stop();
+      setMetronomeOn(false);
+    }
     if (navigator.vibrate) navigator.vibrate(10);
   };
 
@@ -384,6 +399,12 @@ const NewbornLifeSupport: React.FC<NewbornLifeSupportProps> = ({ onBack, onTrans
     saveUndo();
     setNlsState(state);
     setIsRhythmCheckDue(false);
+
+    // Stop metronome when leaving compressions
+    if (state !== NLSState.Compressions && nlsMetronome.isPlaying) {
+      nlsMetronome.stop();
+      setMetronomeOn(false);
+    }
 
     let dur = 30;
     switch (state) {
