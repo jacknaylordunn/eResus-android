@@ -3280,7 +3280,27 @@ const SettingsView: React.FC = () => {
     metronomeBPM, setMetronomeBPM,
     appearanceMode, setAppearanceMode,
     showDosagePrompts, setShowDosagePrompts,
+    researchModeEnabled, setResearchModeEnabled,
+    askForPatientInfo, setAskForPatientInfo,
+    userOrganization, setUserOrganization,
   } = useSettings();
+  
+  const [availableOrgs, setAvailableOrgs] = useState<string[]>(['Independent / None']);
+  
+  useEffect(() => {
+    const fetchOrgs = async () => {
+      try {
+        const { getApps } = await import('firebase/app');
+        const apps = getApps();
+        if (apps.length === 0) return;
+        const db = getFirestore(apps[0]);
+        const snapshot = await getDocs(collection(db, 'organizations'));
+        const orgs = snapshot.docs.map(d => d.data().name as string).filter(Boolean).sort();
+        setAvailableOrgs(['Independent / None', ...orgs]);
+      } catch { /* ignore */ }
+    };
+    fetchOrgs();
+  }, []);
 
   const appearanceOptions = [
     { value: AppearanceMode.System, label: "System", icon: <Laptop size={20} /> },
@@ -3335,6 +3355,41 @@ const SettingsView: React.FC = () => {
             onChange={setShowDosagePrompts}
             description="When enabled, the app will ask for patient age or a manual dose when you log Adrenaline, Amiodarone, or other drugs."
           />
+        </div>
+        
+        {/* --- Research & Data (v1.2) --- */}
+        <div className="p-4 bg-white dark:bg-gray-800 rounded-xl shadow-lg space-y-4">
+          <h3 className="font-semibold text-gray-700 dark:text-gray-300 flex items-center space-x-2">
+            <BarChart3 size={18} />
+            <span>Research & Data</span>
+          </h3>
+          <SettingToggle
+            label="Research Mode"
+            enabled={researchModeEnabled}
+            onChange={setResearchModeEnabled}
+            description="When enabled, anonymised arrest data is uploaded to help improve cardiac arrest outcomes research."
+          />
+          <SettingToggle
+            label="Ask for Patient Info"
+            enabled={askForPatientInfo}
+            onChange={setAskForPatientInfo}
+            description="Prompt for approximate patient age and gender when starting an arrest."
+          />
+          <div className="space-y-2">
+            <span className="text-gray-800 dark:text-gray-200 text-sm">Organisation</span>
+            <select
+              value={userOrganization || 'Independent / None'}
+              onChange={(e) => setUserOrganization(e.target.value)}
+              className="w-full p-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg text-gray-900 dark:text-white text-sm"
+            >
+              {availableOrgs.map(org => <option key={org} value={org}>{org}</option>)}
+            </select>
+          </div>
+          <a href="https://tech.aegismedicalsolutions.co.uk/eresus/data-policy" target="_blank" rel="noopener noreferrer"
+            className="text-sm text-blue-600 dark:text-blue-400 underline flex items-center space-x-1">
+            <ExternalLink size={14} />
+            <span>Data Collection Policy</span>
+          </a>
         </div>
         
         {/* --- Appearance --- */}
