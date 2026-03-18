@@ -3527,7 +3527,8 @@ const AppContent: React.FC = () => {
   }, [showNewborn]);
 
   const arrestViewModel = useArrestViewModel();
-  const { appearanceMode } = useSettings();
+  const { appearanceMode, hasRespondedToResearchTerms } = useSettings();
+  const [showResearchConsent, setShowResearchConsent] = useState(false);
 
   useEffect(() => {
     const root = window.document.documentElement;
