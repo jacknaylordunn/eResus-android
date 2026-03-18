@@ -34,7 +34,9 @@ import {
   OAuthProvider,
   linkWithCredential,
   EmailAuthProvider,
-  User
+  User,
+  browserLocalPersistence,
+  setPersistence
 } from 'firebase/auth';
 import { 
   Heart, 
