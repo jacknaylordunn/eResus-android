@@ -1230,11 +1230,21 @@ ${[...events].sort((a, b) => a.timestamp - b.timestamp).map(e => `[${TimeFormatt
       // Path for private user data
       const logsCollectionPath = `/artifacts/${appId}/users/${userId}/logs`;
       
-      const newLogDoc: Omit<SavedArrestLog, 'id'> = {
+      const newLogDoc: any = {
         startTime: Timestamp.fromDate(startTimeRef.current),
         totalDuration: totalArrestTime,
         finalOutcome: finalOutcome,
         userId: userId,
+        // v1.2 research fields
+        shockCount,
+        adrenalineCount,
+        amiodaroneCount,
+        roscTime: roscTime ?? null,
+        patientAge: patientAgeStr || null,
+        patientGender: patientGenderStr || null,
+        initialRhythm: initialRhythm || null,
+        organization: userOrganization || null,
+        isSynced: false,
       };
       
       const logDocRef = await addDoc(collection(db, logsCollectionPath), newLogDoc);
@@ -1243,6 +1253,43 @@ ${[...events].sort((a, b) => a.timestamp - b.timestamp).map(e => `[${TimeFormatt
       const eventsCollectionRef = collection(db, `${logsCollectionPath}/${logDocRef.id}/events`);
       for (const event of events) {
         await addDoc(eventsCollectionRef, event);
+      }
+      
+      // Upload to research collection if enrolled
+      if (researchModeEnabled) {
+        try {
+          const researchData: any = {
+            startTime: Timestamp.fromDate(startTimeRef.current),
+            totalDuration: totalArrestTime,
+            finalOutcome,
+            shockCount,
+            adrenalineCount,
+            amiodaroneCount,
+            patientAge: patientAgeStr || 'Unknown',
+            patientGender: patientGenderStr || 'Unknown',
+            initialRhythm: initialRhythm || 'Unknown',
+            organization: userOrganization || 'Unknown',
+            uid: userId,
+            timestamp: serverTimestamp(),
+          };
+          if (roscTime !== null) researchData.roscTime = roscTime;
+          
+          await setDoc(doc(db, 'arrestLogs', logDocRef.id), researchData);
+          
+          // Upload events to research
+          for (const event of events) {
+            await addDoc(collection(db, `arrestLogs/${logDocRef.id}/events`), {
+              timestamp: event.timestamp,
+              message: event.message,
+              type: event.type,
+            });
+          }
+          
+          // Mark as synced
+          await updateDoc(doc(db, logsCollectionPath, logDocRef.id), { isSynced: true });
+        } catch (e) {
+          console.error("Error uploading to research collection:", e);
+        }
       }
       
     } catch (e) {
