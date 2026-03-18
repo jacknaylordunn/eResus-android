@@ -3552,6 +3552,13 @@ const AppContent: React.FC = () => {
     }
   }, []);
   
+  // v1.2: Show research consent on first launch (after install modal)
+  useEffect(() => {
+    if (!showInstallModal && !hasRespondedToResearchTerms) {
+      setShowResearchConsent(true);
+    }
+  }, [showInstallModal, hasRespondedToResearchTerms]);
+  
   const handleCloseInstallModal = () => {
     localStorage.setItem('eResusSeenInstallInstructions', 'true');
     setShowInstallModal(false);
