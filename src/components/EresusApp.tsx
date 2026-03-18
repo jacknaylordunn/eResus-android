@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, createContext, useContext, useMemo, lazy, Suspense } from 'react';
+import React, { useState, useEffect, useRef, createContext, useContext, useMemo, lazy, Suspense, useCallback } from 'react';
 import { initializeApp, FirebaseApp } from 'firebase/app';
 import { 
   getFirestore, 
@@ -12,29 +12,34 @@ import {
   onSnapshot,
   Timestamp,
   getDocs,
-  where
+  where,
+  getDoc,
+  updateDoc,
+  FieldValue,
+  serverTimestamp,
+  orderBy
 } from 'firebase/firestore';
 import { 
   getAuth, 
   Auth, 
-  signInAnonymously, 
+  signInAnonymously as fbSignInAnonymously, 
   signInWithCustomToken, 
   onAuthStateChanged,
   User
 } from 'firebase/auth';
 import { 
   Heart, 
-  Book, // Replaced BookClosed
+  Book,
   Settings, 
   RotateCw,
   Square,
   Undo, 
   Clipboard, 
-  Activity, // Replaced WavePulse
+  Activity,
   Zap, 
   Syringe, 
   Pill, 
-  AirVent, // Replaced Lungs
+  AirVent,
   Gauge, 
   HeartPulse, 
   XSquare, 
@@ -51,8 +56,15 @@ import {
   Minus,
   Moon,
   Sun,
-  Laptop
+  Laptop,
+  QrCode,
+  Check,
+  Pencil,
+  User as UserIcon,
+  ExternalLink,
+  BarChart3,
 } from 'lucide-react';
+import { QRCodeSVG } from 'qrcode.react';
 import NewbornLifeSupport from './NewbornLifeSupport';
 
 //============================================================================
@@ -245,6 +257,11 @@ const useAppSettings = () => {
   const [metronomeBPM, setMetronomeBPM] = useAppStorage('metronomeBPM', 110);
   const [appearanceMode, setAppearanceMode] = useAppStorage<AppearanceMode>('appearanceMode', AppearanceMode.System);
   const [showDosagePrompts, setShowDosagePrompts] = useAppStorage('showDosagePrompts', false);
+  // Research & Data Collection (v1.2)
+  const [researchModeEnabled, setResearchModeEnabled] = useAppStorage('researchModeEnabled', true);
+  const [hasRespondedToResearchTerms, setHasRespondedToResearchTerms] = useAppStorage('hasRespondedToResearchTerms', false);
+  const [askForPatientInfo, setAskForPatientInfo] = useAppStorage('askForPatientInfo', false);
+  const [userOrganization, setUserOrganization] = useAppStorage('userOrganization', '');
 
   return {
     cprCycleDuration, setCprCycleDuration,
@@ -252,6 +269,10 @@ const useAppSettings = () => {
     metronomeBPM, setMetronomeBPM,
     appearanceMode, setAppearanceMode,
     showDosagePrompts, setShowDosagePrompts,
+    researchModeEnabled, setResearchModeEnabled,
+    hasRespondedToResearchTerms, setHasRespondedToResearchTerms,
+    askForPatientInfo, setAskForPatientInfo,
+    userOrganization, setUserOrganization,
   };
 };
 type AppSettingsContextType = ReturnType<typeof useAppSettings>;
@@ -636,7 +657,7 @@ const ARREST_SESSION_KEY = 'eresus_arrest_session';
 
 const useArrestViewModel = () => {
   const { db, userId } = useFirebase();
-  const { cprCycleDuration, adrenalineInterval, showDosagePrompts } = useSettings();
+  const { cprCycleDuration, adrenalineInterval, showDosagePrompts, researchModeEnabled, askForPatientInfo, userOrganization } = useSettings();
 
   // --- Restore saved session ---
   const savedSession = useRef<any>(null);
@@ -673,6 +694,12 @@ const useArrestViewModel = () => {
   const [postROSCTasks, setPostROSCTasks] = useState<ChecklistItem[]>(s?.postROSCTasks ?? AppConstants.postROSCTasksTemplate());
   const [postMortemTasks, setPostMortemTasks] = useState<ChecklistItem[]>(s?.postMortemTasks ?? AppConstants.postMortemTasksTemplate());
   const [patientAgeCategory, setPatientAgeCategory] = useState<PatientAgeCategory | null>(s?.patientAgeCategory ?? null);
+  
+  // v1.2 Research State
+  const [patientAgeStr, setPatientAgeStr] = useState(s?.patientAgeStr ?? '');
+  const [patientGenderStr, setPatientGenderStr] = useState(s?.patientGenderStr ?? '');
+  const [initialRhythm, setInitialRhythm] = useState<string | null>(s?.initialRhythm ?? null);
+  const [showPatientInfoPrompt, setShowPatientInfoPrompt] = useState(false);
 
   // --- Private State Properties ---
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -1005,7 +1032,13 @@ const useArrestViewModel = () => {
     }
     
     setArrestState(ArrestState.Active);
+    setInitialRhythm(null); // Reset initial rhythm for new arrest
     logEvent(`${priorStartTime ? 'Transitioned to Paediatric ALS' : 'Arrest Started'} at ${new Date().toLocaleTimeString()}`, EventType.Status);
+    
+    // Show patient info prompt if research mode or askForPatientInfo is enabled
+    if (!priorStartTime && (researchModeEnabled || askForPatientInfo)) {
+      setShowPatientInfoPrompt(true);
+    }
   };
 
   const analyseRhythm = () => {
@@ -1018,6 +1051,10 @@ const useArrestViewModel = () => {
 
   const logRhythm = (rhythm: string, isShockable: boolean) => {
     saveUndoState();
+    // Capture the first rhythm analyzed (v1.2)
+    if (initialRhythm === null) {
+      setInitialRhythm(rhythm);
+    }
     logEvent(`Rhythm is ${rhythm}`, EventType.Rhythm);
     setLastRhythmNonShockable(!isShockable);
     if (!isShockable) setHideAdrenalinePrompt(false);
@@ -1193,11 +1230,21 @@ ${[...events].sort((a, b) => a.timestamp - b.timestamp).map(e => `[${TimeFormatt
       // Path for private user data
       const logsCollectionPath = `/artifacts/${appId}/users/${userId}/logs`;
       
-      const newLogDoc: Omit<SavedArrestLog, 'id'> = {
+      const newLogDoc: any = {
         startTime: Timestamp.fromDate(startTimeRef.current),
         totalDuration: totalArrestTime,
         finalOutcome: finalOutcome,
         userId: userId,
+        // v1.2 research fields
+        shockCount,
+        adrenalineCount,
+        amiodaroneCount,
+        roscTime: roscTime ?? null,
+        patientAge: patientAgeStr || null,
+        patientGender: patientGenderStr || null,
+        initialRhythm: initialRhythm || null,
+        organization: userOrganization || null,
+        isSynced: false,
       };
       
       const logDocRef = await addDoc(collection(db, logsCollectionPath), newLogDoc);
@@ -1206,6 +1253,43 @@ ${[...events].sort((a, b) => a.timestamp - b.timestamp).map(e => `[${TimeFormatt
       const eventsCollectionRef = collection(db, `${logsCollectionPath}/${logDocRef.id}/events`);
       for (const event of events) {
         await addDoc(eventsCollectionRef, event);
+      }
+      
+      // Upload to research collection if enrolled
+      if (researchModeEnabled) {
+        try {
+          const researchData: any = {
+            startTime: Timestamp.fromDate(startTimeRef.current),
+            totalDuration: totalArrestTime,
+            finalOutcome,
+            shockCount,
+            adrenalineCount,
+            amiodaroneCount,
+            patientAge: patientAgeStr || 'Unknown',
+            patientGender: patientGenderStr || 'Unknown',
+            initialRhythm: initialRhythm || 'Unknown',
+            organization: userOrganization || 'Unknown',
+            uid: userId,
+            timestamp: serverTimestamp(),
+          };
+          if (roscTime !== null) researchData.roscTime = roscTime;
+          
+          await setDoc(doc(db, 'arrestLogs', logDocRef.id), researchData);
+          
+          // Upload events to research
+          for (const event of events) {
+            await addDoc(collection(db, `arrestLogs/${logDocRef.id}/events`), {
+              timestamp: event.timestamp,
+              message: event.message,
+              type: event.type,
+            });
+          }
+          
+          // Mark as synced
+          await updateDoc(doc(db, logsCollectionPath, logDocRef.id), { isSynced: true });
+        } catch (e) {
+          console.error("Error uploading to research collection:", e);
+        }
       }
       
     } catch (e) {
@@ -1249,7 +1333,153 @@ ${[...events].sort((a, b) => a.timestamp - b.timestamp).map(e => `[${TimeFormatt
     setLastRhythmNonShockable(false);
     setAirwayAdjunct(null);
     setRoscTime(null);
+    // v1.2 research reset
+    setPatientAgeStr('');
+    setPatientGenderStr('');
+    setInitialRhythm(null);
+    setShowPatientInfoPrompt(false);
     localStorage.removeItem(ARREST_SESSION_KEY);
+  };
+
+  // v1.2: Offline Log Sweeper
+  const syncOfflineLogs = async () => {
+    if (!researchModeEnabled) return;
+    try {
+      const logsCollectionPath = `/artifacts/${appId}/users/${userId}/logs`;
+      const q = query(collection(db, logsCollectionPath), where("isSynced", "==", false));
+      const snapshot = await getDocs(q);
+      for (const logDoc of snapshot.docs) {
+        const data = logDoc.data();
+        try {
+          const researchData: any = {
+            startTime: data.startTime,
+            totalDuration: data.totalDuration,
+            finalOutcome: data.finalOutcome,
+            shockCount: data.shockCount ?? 0,
+            adrenalineCount: data.adrenalineCount ?? 0,
+            amiodaroneCount: data.amiodaroneCount ?? 0,
+            patientAge: data.patientAge || 'Unknown',
+            patientGender: data.patientGender || 'Unknown',
+            initialRhythm: data.initialRhythm || 'Unknown',
+            organization: data.organization || 'Unknown',
+            uid: userId,
+            timestamp: serverTimestamp(),
+          };
+          if (data.roscTime != null) researchData.roscTime = data.roscTime;
+          
+          await setDoc(doc(db, 'arrestLogs', logDoc.id), researchData);
+          
+          // Upload events
+          const eventsPath = `${logsCollectionPath}/${logDoc.id}/events`;
+          const eventsSnap = await getDocs(collection(db, eventsPath));
+          for (const eventDoc of eventsSnap.docs) {
+            const eventData = eventDoc.data();
+            await addDoc(collection(db, `arrestLogs/${logDoc.id}/events`), eventData);
+          }
+          
+          await updateDoc(doc(db, logsCollectionPath, logDoc.id), { isSynced: true });
+        } catch (e) {
+          console.error("Error syncing log:", logDoc.id, e);
+        }
+      }
+    } catch (e) {
+      console.error("Error sweeping offline logs:", e);
+    }
+  };
+
+  // Run sweep on mount
+  useEffect(() => {
+    syncOfflineLogs();
+  }, []);
+
+  // v1.2: QR Session Transfer
+  const generateTransferState = () => {
+    return {
+      arrestState, masterTime, cprTime, timeOffset, events,
+      shockCount, adrenalineCount, amiodaroneCount, lidocaineCount,
+      airwayPlaced, antiarrhythmicGiven, reversibleCauses, postROSCTasks,
+      postMortemTasks, patientAgeCategory, uiState,
+      hideAdrenalinePrompt, hideAmiodaronePrompt, lastRhythmNonShockable,
+      airwayAdjunct, roscTime, isTimerPaused,
+      startTime: startTimeRef.current?.toISOString() ?? null,
+      cprCycleStartTime: cprCycleStartTimeRef.current,
+      lastAdrenalineTime: lastAdrenalineTimeRef.current,
+      shockCountForAmiodarone1: shockCountForAmiodarone1Ref.current,
+      initialRhythm, patientAgeStr, patientGenderStr,
+    };
+  };
+
+  const hostSessionTransfer = async (): Promise<string | null> => {
+    try {
+      const state = generateTransferState();
+      const transferId = String(Math.floor(100000 + Math.random() * 900000));
+      await setDoc(doc(db, 'transfers', transferId), {
+        stateData: JSON.stringify(state),
+        createdAt: serverTimestamp(),
+      });
+      return transferId;
+    } catch (e) {
+      console.error("Error hosting session transfer:", e);
+      return null;
+    }
+  };
+
+  const receiveSessionTransfer = async (transferId: string): Promise<boolean> => {
+    try {
+      const transferDoc = await getDoc(doc(db, 'transfers', transferId));
+      if (!transferDoc.exists()) return false;
+      
+      const data = transferDoc.data();
+      const state = JSON.parse(data.stateData);
+      
+      // Apply state
+      setArrestState(state.arrestState);
+      setMasterTime(state.masterTime);
+      setCprTime(state.cprTime);
+      setTimeOffset(state.timeOffset);
+      setEvents(state.events);
+      setShockCount(state.shockCount);
+      setAdrenalineCount(state.adrenalineCount);
+      setAmiodaroneCount(state.amiodaroneCount);
+      setLidocaineCount(state.lidocaineCount);
+      setAirwayPlaced(state.airwayPlaced);
+      setAntiarrhythmicGiven(state.antiarrhythmicGiven);
+      setReversibleCauses(state.reversibleCauses);
+      setPostROSCTasks(state.postROSCTasks);
+      setPostMortemTasks(state.postMortemTasks);
+      setPatientAgeCategory(state.patientAgeCategory);
+      setUiState(state.uiState);
+      setHideAdrenalinePrompt(state.hideAdrenalinePrompt ?? false);
+      setHideAmiodaronePrompt(state.hideAmiodaronePrompt ?? false);
+      setLastRhythmNonShockable(state.lastRhythmNonShockable ?? false);
+      setAirwayAdjunct(state.airwayAdjunct ?? null);
+      setRoscTime(state.roscTime ?? null);
+      setIsTimerPaused(state.isTimerPaused ?? false);
+      setInitialRhythm(state.initialRhythm ?? null);
+      setPatientAgeStr(state.patientAgeStr ?? '');
+      setPatientGenderStr(state.patientGenderStr ?? '');
+      
+      if (state.startTime) startTimeRef.current = new Date(state.startTime);
+      cprCycleStartTimeRef.current = state.cprCycleStartTime ?? 0;
+      lastAdrenalineTimeRef.current = state.lastAdrenalineTime ?? null;
+      shockCountForAmiodarone1Ref.current = state.shockCountForAmiodarone1 ?? null;
+      
+      logEvent("Session Transferred from another device", EventType.Status);
+      setUndoHistory([]);
+      
+      // Delete the transfer doc
+      await deleteDoc(doc(db, 'transfers', transferId));
+      
+      // Start timer if needed
+      if ((state.arrestState === ArrestState.Active || state.arrestState === ArrestState.Rosc) && !state.isTimerPaused) {
+        startTimer();
+      }
+      
+      return true;
+    } catch (e) {
+      console.error("Error receiving session transfer:", e);
+      return false;
+    }
   };
 
   return {
@@ -1260,6 +1490,9 @@ ${[...events].sort((a, b) => a.timestamp - b.timestamp).map(e => `[${TimeFormatt
     postMortemTasks, patientAgeCategory, isTimerPaused,
     hideAdrenalinePrompt, hideAmiodaronePrompt, roscTime, airwayAdjunct,
     startTime: startTimeRef.current,
+    // v1.2 research
+    patientAgeStr, setPatientAgeStr, patientGenderStr, setPatientGenderStr,
+    initialRhythm, showPatientInfoPrompt, setShowPatientInfoPrompt,
     
     // Computed
     totalArrestTime, canUndo, isAdrenalineAvailable, isAmiodaroneAvailable,
@@ -1277,6 +1510,8 @@ ${[...events].sort((a, b) => a.timestamp - b.timestamp).map(e => `[${TimeFormatt
     toggleChecklistItemCompletion, setHypothermiaStatus, setPatientAgeCategory,
     performReset, undo, copySummaryToClipboard, pauseArrest, resumeArrest,
     setHideAdrenalinePrompt, setHideAmiodaronePrompt,
+    // v1.2 transfer
+    hostSessionTransfer, receiveSessionTransfer, generateTransferState,
   };
 };
 
@@ -1324,7 +1559,240 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children }) => {
   );
 };
 
-// Install Instructions Modal for PWA
+// v1.2: Patient Info Prompt Modal
+const PatientInfoPromptView: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isOpen, onClose }) => {
+  const { patientAgeStr, setPatientAgeStr, patientGenderStr, setPatientGenderStr } = useArrest();
+  
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} title="Patient Info">
+      <div className="space-y-4">
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Approx Age</label>
+          <input
+            type="number"
+            value={patientAgeStr}
+            onChange={(e) => setPatientAgeStr(e.target.value)}
+            placeholder="e.g. 45"
+            className="w-full p-3 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg text-gray-900 dark:text-white"
+          />
+        </div>
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Gender</label>
+          <select
+            value={patientGenderStr}
+            onChange={(e) => setPatientGenderStr(e.target.value)}
+            className="w-full p-3 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg text-gray-900 dark:text-white"
+          >
+            <option value="">Unknown</option>
+            <option value="Male">Male</option>
+            <option value="Female">Female</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+        <p className="text-xs text-gray-500 dark:text-gray-400">These details help improve cardiac arrest outcomes research.</p>
+        <ActionButton title="Save" backgroundColor="bg-blue-600" foregroundColor="text-white" onClick={onClose} />
+      </div>
+    </Modal>
+  );
+};
+
+// v1.2: Research Consent View
+const ResearchConsentView: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isOpen, onClose }) => {
+  const { researchModeEnabled, setResearchModeEnabled, setHasRespondedToResearchTerms, userOrganization, setUserOrganization } = useSettings();
+  const [orgName, setOrgName] = useState(userOrganization || 'Independent / None');
+  const [availableOrgs, setAvailableOrgs] = useState<string[]>(['Independent / None']);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    // Fetch organizations from Firebase
+    const fetchOrgs = async () => {
+      try {
+        const apps = require('firebase/app').getApps();
+        if (apps.length === 0) return;
+        const db = getFirestore(apps[0]);
+        const snapshot = await getDocs(collection(db, 'organizations'));
+        const orgs = snapshot.docs.map(d => d.data().name as string).filter(Boolean).sort();
+        setAvailableOrgs(['Independent / None', ...orgs]);
+      } catch { /* ignore */ }
+    };
+    fetchOrgs();
+  }, [isOpen]);
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-gray-900/95 z-50 flex items-center justify-center p-4">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-sm p-6 space-y-5 max-h-[90vh] overflow-y-auto">
+        <BarChart3 size={64} className="text-blue-500 mx-auto" />
+        <h2 className="text-2xl font-bold text-center text-gray-900 dark:text-white">Help Advance Science</h2>
+        <p className="text-sm text-center text-gray-600 dark:text-gray-400">
+          eResus is partnering with researchers to track the effectiveness of interventions. By enrolling, your app will automatically upload anonymised records when an arrest concludes.
+        </p>
+        <a href="https://tech.aegismedicalsolutions.co.uk/eresus/data-policy" target="_blank" rel="noopener noreferrer"
+          className="block text-center text-sm text-blue-600 dark:text-blue-400 underline">
+          Read the Data Collection Policy & Agreement
+        </a>
+        <div className="space-y-2">
+          <label className="text-xs text-gray-500 dark:text-gray-400">Select your Ambulance Trust / Organisation:</label>
+          <select value={orgName} onChange={(e) => setOrgName(e.target.value)}
+            className="w-full p-2 border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 rounded-lg text-gray-900 dark:text-white text-sm">
+            {availableOrgs.map(org => <option key={org} value={org}>{org}</option>)}
+          </select>
+        </div>
+        <button onClick={() => {
+          setResearchModeEnabled(true);
+          setUserOrganization(orgName);
+          setHasRespondedToResearchTerms(true);
+          onClose();
+        }} className="w-full py-3 rounded-xl bg-blue-600 text-white font-bold active:scale-95 transition-transform">
+          Enroll & Accept Terms
+        </button>
+        <button onClick={() => {
+          setResearchModeEnabled(false);
+          setHasRespondedToResearchTerms(true);
+          onClose();
+        }} className="w-full py-2 text-gray-500 dark:text-gray-400 font-medium">
+          No, Opt Out
+        </button>
+      </div>
+    </div>
+  );
+};
+
+// v1.2: Session Transfer Modal
+const SessionTransferModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isOpen, onClose }) => {
+  const { hostSessionTransfer, receiveSessionTransfer } = useArrest();
+  const [hostedCode, setHostedCode] = useState<string | null>(null);
+  const [isHosting, setIsHosting] = useState(false);
+  const [receiveCode, setReceiveCode] = useState('');
+  const [isReceiving, setIsReceiving] = useState(false);
+  const [receiveError, setReceiveError] = useState('');
+  const [mode, setMode] = useState<'menu' | 'send' | 'receive'>('menu');
+
+  const handleHost = async () => {
+    setIsHosting(true);
+    const code = await hostSessionTransfer();
+    setHostedCode(code);
+    setIsHosting(false);
+  };
+
+  const handleReceive = async () => {
+    if (receiveCode.length !== 6) return;
+    setIsReceiving(true);
+    setReceiveError('');
+    const success = await receiveSessionTransfer(receiveCode);
+    setIsReceiving(false);
+    if (success) {
+      onClose();
+    } else {
+      setReceiveError('Transfer not found. Check the code and try again.');
+    }
+  };
+
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} title="Transfer Arrest">
+      <div className="space-y-4">
+        {mode === 'menu' && (
+          <>
+            <ActionButton title="Send to Another Device" icon={<QrCode size={18} />}
+              backgroundColor="bg-purple-600" foregroundColor="text-white"
+              onClick={() => { setMode('send'); handleHost(); }} />
+            <ActionButton title="Receive from Another Device" icon={<QrCode size={18} />}
+              backgroundColor="bg-blue-600" foregroundColor="text-white"
+              onClick={() => setMode('receive')} />
+          </>
+        )}
+        {mode === 'send' && (
+          <div className="text-center space-y-4">
+            {isHosting ? (
+              <p className="text-gray-600 dark:text-gray-400 animate-pulse">Preparing Transfer...</p>
+            ) : hostedCode ? (
+              <>
+                <p className="font-semibold text-gray-700 dark:text-gray-300">Scan on receiving device or enter code:</p>
+                <div className="flex justify-center">
+                  <QRCodeSVG value={hostedCode} size={180} />
+                </div>
+                <p className="font-mono text-3xl font-bold text-gray-900 dark:text-white tracking-widest">{hostedCode}</p>
+              </>
+            ) : (
+              <p className="text-red-500">Failed to generate transfer code.</p>
+            )}
+          </div>
+        )}
+        {mode === 'receive' && (
+          <div className="space-y-4">
+            <p className="text-sm text-center text-gray-600 dark:text-gray-400">Enter the 6-digit code shown on the sending device:</p>
+            <input type="text" value={receiveCode} onChange={(e) => setReceiveCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+              placeholder="000000" maxLength={6}
+              className="w-full text-center text-3xl font-mono font-bold p-4 border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-xl text-gray-900 dark:text-white tracking-[0.5em]" />
+            {receiveError && <p className="text-sm text-red-500 text-center">{receiveError}</p>}
+            <ActionButton title={isReceiving ? "Receiving..." : "Receive Session"}
+              backgroundColor="bg-blue-600" foregroundColor="text-white"
+              onClick={handleReceive} disabled={receiveCode.length !== 6 || isReceiving} />
+          </div>
+        )}
+      </div>
+    </Modal>
+  );
+};
+
+// v1.2: Edit Log Patient Info Modal
+const EditLogPatientInfoModal: React.FC<{
+  isOpen: boolean;
+  onClose: () => void;
+  logId: string;
+  currentAge?: string;
+  currentGender?: string;
+  currentRhythm?: string;
+}> = ({ isOpen, onClose, logId, currentAge, currentGender, currentRhythm }) => {
+  const { db, userId } = useFirebase();
+  const [age, setAge] = useState(currentAge || '');
+  const [gender, setGender] = useState(currentGender || '');
+  const [rhythm, setRhythm] = useState(currentRhythm || '');
+
+  const handleSave = async () => {
+    try {
+      const logPath = `/artifacts/${appId}/users/${userId}/logs/${logId}`;
+      await updateDoc(doc(db, logPath), {
+        patientAge: age || null,
+        patientGender: gender || null,
+        initialRhythm: rhythm || null,
+      });
+      onClose();
+    } catch (e) {
+      console.error("Error updating log:", e);
+    }
+  };
+
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} title="Edit Patient Info">
+      <div className="space-y-4">
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Approx Age</label>
+          <input type="number" value={age} onChange={(e) => setAge(e.target.value)} placeholder="e.g. 45"
+            className="w-full p-3 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg text-gray-900 dark:text-white" />
+        </div>
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Gender</label>
+          <select value={gender} onChange={(e) => setGender(e.target.value)}
+            className="w-full p-3 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg text-gray-900 dark:text-white">
+            <option value="">Unknown</option>
+            <option value="Male">Male</option>
+            <option value="Female">Female</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Initial Rhythm</label>
+          <input type="text" value={rhythm} onChange={(e) => setRhythm(e.target.value)} placeholder="e.g. VF, Asystole"
+            className="w-full p-3 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg text-gray-900 dark:text-white" />
+        </div>
+        <ActionButton title="Save" backgroundColor="bg-blue-600" foregroundColor="text-white" onClick={handleSave} />
+      </div>
+    </Modal>
+  );
+};
+
 const InstallInstructionsModal: React.FC<{
   isOpen: boolean;
   onClose: () => void;
