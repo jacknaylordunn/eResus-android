@@ -1032,7 +1032,13 @@ const useArrestViewModel = () => {
     }
     
     setArrestState(ArrestState.Active);
+    setInitialRhythm(null); // Reset initial rhythm for new arrest
     logEvent(`${priorStartTime ? 'Transitioned to Paediatric ALS' : 'Arrest Started'} at ${new Date().toLocaleTimeString()}`, EventType.Status);
+    
+    // Show patient info prompt if research mode or askForPatientInfo is enabled
+    if (!priorStartTime && (researchModeEnabled || askForPatientInfo)) {
+      setShowPatientInfoPrompt(true);
+    }
   };
 
   const analyseRhythm = () => {
