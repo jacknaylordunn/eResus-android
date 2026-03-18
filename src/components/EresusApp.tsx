@@ -1855,11 +1855,18 @@ const InstallInstructionsModal: React.FC<{
 
 const SummaryView: React.FC<{ isOpen: boolean; onClose: () => void; }> = ({ isOpen, onClose }) => {
   const { events, totalArrestTime, copySummaryToClipboard, shockCount, adrenalineCount, amiodaroneCount, lidocaineCount, roscTime, startTime } = useArrest();
+  const [copied, setCopied] = useState(false);
   
   const sortedEvents = useMemo(() => 
     [...events].sort((a, b) => a.timestamp - b.timestamp), 
     [events]
   );
+
+  const handleCopy = () => {
+    copySummaryToClipboard();
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Event Summary">
@@ -1892,16 +1899,25 @@ const SummaryView: React.FC<{ isOpen: boolean; onClose: () => void; }> = ({ isOp
           ))}
         </div>
         
-        <ActionButton
-          title="Copy to Clipboard"
-          icon={<Clipboard size={18} />}
-          backgroundColor="bg-blue-600"
-          foregroundColor="text-white"
-          onClick={() => {
-            copySummaryToClipboard();
-            onClose();
-          }}
-        />
+        <div className="flex space-x-3">
+          <ActionButton
+            title="Done"
+            backgroundColor="bg-gray-200 dark:bg-gray-700"
+            foregroundColor="text-gray-800 dark:text-gray-200"
+            onClick={onClose}
+          />
+          <button
+            onClick={handleCopy}
+            className={`flex-1 flex items-center justify-center space-x-2 h-14 rounded-xl font-semibold shadow-md transition-all duration-300 active:scale-95 ${
+              copied 
+                ? 'bg-green-600 text-white' 
+                : 'bg-blue-600 text-white'
+            }`}
+          >
+            {copied ? <Check size={18} /> : <Clipboard size={18} />}
+            <span>{copied ? 'Copied!' : 'Copy'}</span>
+          </button>
+        </div>
       </div>
     </Modal>
   );
