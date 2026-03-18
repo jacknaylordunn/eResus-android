@@ -3095,21 +3095,23 @@ const ArrestView: React.FC<{
 // --- LogbookView ---
 const LogbookView: React.FC = () => {
   const { db, userId } = useFirebase();
-  const [logs, setLogs] = useState<SavedArrestLog[]>([]);
-  const [selectedLog, setSelectedLog] = useState<SavedArrestLog | null>(null);
+  const { askForPatientInfo, researchModeEnabled } = useSettings();
+  const [logs, setLogs] = useState<any[]>([]);
+  const [selectedLog, setSelectedLog] = useState<any | null>(null);
   const [selectedLogEvents, setSelectedLogEvents] = useState<Event[]>([]);
+  const [editingLog, setEditingLog] = useState<any | null>(null);
+  const [longPressLog, setLongPressLog] = useState<string | null>(null);
   
   useEffect(() => {
     const logsCollectionPath = `/artifacts/${appId}/users/${userId}/logs`;
     const q = query(collection(db, logsCollectionPath), where("userId", "==", userId));
     
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const fetchedLogs: SavedArrestLog[] = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      } as SavedArrestLog));
-      // Sort in memory
-      fetchedLogs.sort((a, b) => b.startTime.toMillis() - a.startTime.toMillis());
+      const fetchedLogs = snapshot.docs.map(d => ({
+        id: d.id,
+        ...d.data()
+      }));
+      fetchedLogs.sort((a: any, b: any) => b.startTime.toMillis() - a.startTime.toMillis());
       setLogs(fetchedLogs);
     }, (error) => {
       console.error("Error fetching logs: ", error);
@@ -3118,13 +3120,13 @@ const LogbookView: React.FC = () => {
     return () => unsubscribe();
   }, [db, userId]);
 
-  const openLog = async (log: SavedArrestLog) => {
+  const openLog = async (log: any) => {
     if (!log.id) return;
     setSelectedLog(log);
     try {
       const eventsCollectionPath = `/artifacts/${appId}/users/${userId}/logs/${log.id}/events`;
       const eventsSnapshot = await getDocs(collection(db, eventsCollectionPath));
-      const fetchedEvents: Event[] = eventsSnapshot.docs.map(doc => doc.data() as Event);
+      const fetchedEvents: Event[] = eventsSnapshot.docs.map(d => d.data() as Event);
       fetchedEvents.sort((a, b) => a.timestamp - b.timestamp);
       setSelectedLogEvents(fetchedEvents);
     } catch (e) {
@@ -3136,14 +3138,22 @@ const LogbookView: React.FC = () => {
   const deleteLog = async (logId: string) => {
     if (window.confirm("Are you sure you want to delete this log?")) {
       try {
-        // Note: Deleting subcollections is complex. This only deletes the main log doc.
-        // A full implementation would need a cloud function to delete subcollections.
         const logDocPath = `/artifacts/${appId}/users/${userId}/logs/${logId}`;
         await deleteDoc(doc(db, logDocPath));
       } catch (e) {
         console.error("Error deleting log: ", e);
       }
     }
+  };
+
+  const hasPatientInfo = (log: any) => !!(log.patientAge || log.patientGender);
+  const showAddInfoPill = (askForPatientInfo || researchModeEnabled);
+
+  const getPatientInfoText = (log: any) => {
+    const parts: string[] = [];
+    if (log.patientAge) parts.push(`${log.patientAge} y/o`);
+    if (log.patientGender) parts.push(log.patientGender);
+    return parts.join(' ');
   };
 
   return (
@@ -3156,23 +3166,60 @@ const LogbookView: React.FC = () => {
         {logs.length === 0 && (
           <p className="text-center text-gray-500 dark:text-gray-400 pt-10">No saved logs.</p>
         )}
-        {logs.map(log => (
-          <div key={log.id} className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow flex justify-between items-center">
-            <button onClick={() => openLog(log)} className="flex-grow text-left">
-              <h3 className="font-semibold text-gray-900 dark:text-white">{log.startTime.toDate().toLocaleDateString()}</h3>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
-                {log.startTime.toDate().toLocaleTimeString()}
-              </p>
-              <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
-                Duration: {TimeFormatter.format(log.totalDuration)} | Outcome: {log.finalOutcome}
-              </p>
-            </button>
-            <button 
-              onClick={() => log.id && deleteLog(log.id)}
-              className="p-2 text-red-500 hover:text-red-700"
-            >
-              <XSquare size={20} />
-            </button>
+        {logs.map((log: any) => (
+          <div 
+            key={log.id} 
+            className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow relative"
+            onContextMenu={(e) => { e.preventDefault(); setLongPressLog(longPressLog === log.id ? null : log.id); }}
+          >
+            <div className="flex justify-between items-start">
+              <button onClick={() => openLog(log)} className="flex-grow text-left">
+                <h3 className="font-semibold text-gray-900 dark:text-white">{log.startTime.toDate().toLocaleDateString()}</h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  {log.startTime.toDate().toLocaleTimeString()}
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
+                  Duration: {TimeFormatter.format(log.totalDuration)} | Outcome: {log.finalOutcome}
+                </p>
+                {/* v1.2: Patient info display or add pill */}
+                {hasPatientInfo(log) ? (
+                  <p className="text-xs text-blue-600 dark:text-blue-400 font-semibold mt-1">{getPatientInfoText(log)}</p>
+                ) : showAddInfoPill ? (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setEditingLog(log); }}
+                    className="mt-2 px-3 py-1 text-xs font-semibold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 rounded-full"
+                  >
+                    + Add Patient Info
+                  </button>
+                ) : null}
+              </button>
+              <div className="flex flex-col items-end space-y-1 flex-shrink-0 ml-2">
+                <button onClick={() => setEditingLog(log)} className="p-1.5 text-gray-400 hover:text-blue-500">
+                  <Pencil size={16} />
+                </button>
+                <button onClick={() => log.id && deleteLog(log.id)} className="p-1.5 text-gray-400 hover:text-red-500">
+                  <XSquare size={16} />
+                </button>
+              </div>
+            </div>
+            
+            {/* Long-press context menu */}
+            {longPressLog === log.id && (
+              <div className="absolute top-full left-4 right-4 mt-1 bg-white dark:bg-gray-700 rounded-lg shadow-xl z-10 border border-gray-200 dark:border-gray-600 overflow-hidden">
+                <button onClick={() => { setEditingLog(log); setLongPressLog(null); }}
+                  className="w-full text-left px-4 py-3 text-sm text-gray-800 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600 flex items-center space-x-2">
+                  <Pencil size={14} /> <span>Edit Patient Info</span>
+                </button>
+                <button onClick={() => { openLog(log); setLongPressLog(null); }}
+                  className="w-full text-left px-4 py-3 text-sm text-gray-800 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600 flex items-center space-x-2">
+                  <FileText size={14} /> <span>View Summary</span>
+                </button>
+                <button onClick={() => { log.id && deleteLog(log.id); setLongPressLog(null); }}
+                  className="w-full text-left px-4 py-3 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center space-x-2">
+                  <XSquare size={14} /> <span>Delete</span>
+                </button>
+              </div>
+            )}
           </div>
         ))}
       </div>
@@ -3208,6 +3255,18 @@ const LogbookView: React.FC = () => {
             />
           </div>
         </Modal>
+      )}
+      
+      {/* v1.2: Edit Log Patient Info Modal */}
+      {editingLog && (
+        <EditLogPatientInfoModal
+          isOpen={!!editingLog}
+          onClose={() => setEditingLog(null)}
+          logId={editingLog.id}
+          currentAge={editingLog.patientAge}
+          currentGender={editingLog.patientGender}
+          currentRhythm={editingLog.initialRhythm}
+        />
       )}
     </div>
   );
