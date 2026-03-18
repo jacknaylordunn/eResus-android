@@ -3251,8 +3251,8 @@ const LogbookView: React.FC = () => {
 
   const getPatientInfoText = (log: any) => {
     const parts: string[] = [];
-    if (log.patientAge) parts.push(`${log.patientAge} y/o`);
-    if (log.patientGender) parts.push(log.patientGender);
+    if (log.patientAge && log.patientAge !== 'Unknown') parts.push(`${log.patientAge} y/o`);
+    if (log.patientGender && log.patientGender !== 'Unknown') parts.push(log.patientGender);
     return parts.join(' ');
   };
 
