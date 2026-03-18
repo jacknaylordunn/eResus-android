@@ -1559,7 +1559,240 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children }) => {
   );
 };
 
-// Install Instructions Modal for PWA
+// v1.2: Patient Info Prompt Modal
+const PatientInfoPromptView: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isOpen, onClose }) => {
+  const { patientAgeStr, setPatientAgeStr, patientGenderStr, setPatientGenderStr } = useArrest();
+  
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} title="Patient Info">
+      <div className="space-y-4">
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Approx Age</label>
+          <input
+            type="number"
+            value={patientAgeStr}
+            onChange={(e) => setPatientAgeStr(e.target.value)}
+            placeholder="e.g. 45"
+            className="w-full p-3 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg text-gray-900 dark:text-white"
+          />
+        </div>
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Gender</label>
+          <select
+            value={patientGenderStr}
+            onChange={(e) => setPatientGenderStr(e.target.value)}
+            className="w-full p-3 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg text-gray-900 dark:text-white"
+          >
+            <option value="">Unknown</option>
+            <option value="Male">Male</option>
+            <option value="Female">Female</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+        <p className="text-xs text-gray-500 dark:text-gray-400">These details help improve cardiac arrest outcomes research.</p>
+        <ActionButton title="Save" backgroundColor="bg-blue-600" foregroundColor="text-white" onClick={onClose} />
+      </div>
+    </Modal>
+  );
+};
+
+// v1.2: Research Consent View
+const ResearchConsentView: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isOpen, onClose }) => {
+  const { researchModeEnabled, setResearchModeEnabled, setHasRespondedToResearchTerms, userOrganization, setUserOrganization } = useSettings();
+  const [orgName, setOrgName] = useState(userOrganization || 'Independent / None');
+  const [availableOrgs, setAvailableOrgs] = useState<string[]>(['Independent / None']);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    // Fetch organizations from Firebase
+    const fetchOrgs = async () => {
+      try {
+        const apps = require('firebase/app').getApps();
+        if (apps.length === 0) return;
+        const db = getFirestore(apps[0]);
+        const snapshot = await getDocs(collection(db, 'organizations'));
+        const orgs = snapshot.docs.map(d => d.data().name as string).filter(Boolean).sort();
+        setAvailableOrgs(['Independent / None', ...orgs]);
+      } catch { /* ignore */ }
+    };
+    fetchOrgs();
+  }, [isOpen]);
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-gray-900/95 z-50 flex items-center justify-center p-4">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-sm p-6 space-y-5 max-h-[90vh] overflow-y-auto">
+        <BarChart3 size={64} className="text-blue-500 mx-auto" />
+        <h2 className="text-2xl font-bold text-center text-gray-900 dark:text-white">Help Advance Science</h2>
+        <p className="text-sm text-center text-gray-600 dark:text-gray-400">
+          eResus is partnering with researchers to track the effectiveness of interventions. By enrolling, your app will automatically upload anonymised records when an arrest concludes.
+        </p>
+        <a href="https://tech.aegismedicalsolutions.co.uk/eresus/data-policy" target="_blank" rel="noopener noreferrer"
+          className="block text-center text-sm text-blue-600 dark:text-blue-400 underline">
+          Read the Data Collection Policy & Agreement
+        </a>
+        <div className="space-y-2">
+          <label className="text-xs text-gray-500 dark:text-gray-400">Select your Ambulance Trust / Organisation:</label>
+          <select value={orgName} onChange={(e) => setOrgName(e.target.value)}
+            className="w-full p-2 border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 rounded-lg text-gray-900 dark:text-white text-sm">
+            {availableOrgs.map(org => <option key={org} value={org}>{org}</option>)}
+          </select>
+        </div>
+        <button onClick={() => {
+          setResearchModeEnabled(true);
+          setUserOrganization(orgName);
+          setHasRespondedToResearchTerms(true);
+          onClose();
+        }} className="w-full py-3 rounded-xl bg-blue-600 text-white font-bold active:scale-95 transition-transform">
+          Enroll & Accept Terms
+        </button>
+        <button onClick={() => {
+          setResearchModeEnabled(false);
+          setHasRespondedToResearchTerms(true);
+          onClose();
+        }} className="w-full py-2 text-gray-500 dark:text-gray-400 font-medium">
+          No, Opt Out
+        </button>
+      </div>
+    </div>
+  );
+};
+
+// v1.2: Session Transfer Modal
+const SessionTransferModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isOpen, onClose }) => {
+  const { hostSessionTransfer, receiveSessionTransfer } = useArrest();
+  const [hostedCode, setHostedCode] = useState<string | null>(null);
+  const [isHosting, setIsHosting] = useState(false);
+  const [receiveCode, setReceiveCode] = useState('');
+  const [isReceiving, setIsReceiving] = useState(false);
+  const [receiveError, setReceiveError] = useState('');
+  const [mode, setMode] = useState<'menu' | 'send' | 'receive'>('menu');
+
+  const handleHost = async () => {
+    setIsHosting(true);
+    const code = await hostSessionTransfer();
+    setHostedCode(code);
+    setIsHosting(false);
+  };
+
+  const handleReceive = async () => {
+    if (receiveCode.length !== 6) return;
+    setIsReceiving(true);
+    setReceiveError('');
+    const success = await receiveSessionTransfer(receiveCode);
+    setIsReceiving(false);
+    if (success) {
+      onClose();
+    } else {
+      setReceiveError('Transfer not found. Check the code and try again.');
+    }
+  };
+
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} title="Transfer Arrest">
+      <div className="space-y-4">
+        {mode === 'menu' && (
+          <>
+            <ActionButton title="Send to Another Device" icon={<QrCode size={18} />}
+              backgroundColor="bg-purple-600" foregroundColor="text-white"
+              onClick={() => { setMode('send'); handleHost(); }} />
+            <ActionButton title="Receive from Another Device" icon={<QrCode size={18} />}
+              backgroundColor="bg-blue-600" foregroundColor="text-white"
+              onClick={() => setMode('receive')} />
+          </>
+        )}
+        {mode === 'send' && (
+          <div className="text-center space-y-4">
+            {isHosting ? (
+              <p className="text-gray-600 dark:text-gray-400 animate-pulse">Preparing Transfer...</p>
+            ) : hostedCode ? (
+              <>
+                <p className="font-semibold text-gray-700 dark:text-gray-300">Scan on receiving device or enter code:</p>
+                <div className="flex justify-center">
+                  <QRCodeSVG value={hostedCode} size={180} />
+                </div>
+                <p className="font-mono text-3xl font-bold text-gray-900 dark:text-white tracking-widest">{hostedCode}</p>
+              </>
+            ) : (
+              <p className="text-red-500">Failed to generate transfer code.</p>
+            )}
+          </div>
+        )}
+        {mode === 'receive' && (
+          <div className="space-y-4">
+            <p className="text-sm text-center text-gray-600 dark:text-gray-400">Enter the 6-digit code shown on the sending device:</p>
+            <input type="text" value={receiveCode} onChange={(e) => setReceiveCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+              placeholder="000000" maxLength={6}
+              className="w-full text-center text-3xl font-mono font-bold p-4 border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-xl text-gray-900 dark:text-white tracking-[0.5em]" />
+            {receiveError && <p className="text-sm text-red-500 text-center">{receiveError}</p>}
+            <ActionButton title={isReceiving ? "Receiving..." : "Receive Session"}
+              backgroundColor="bg-blue-600" foregroundColor="text-white"
+              onClick={handleReceive} disabled={receiveCode.length !== 6 || isReceiving} />
+          </div>
+        )}
+      </div>
+    </Modal>
+  );
+};
+
+// v1.2: Edit Log Patient Info Modal
+const EditLogPatientInfoModal: React.FC<{
+  isOpen: boolean;
+  onClose: () => void;
+  logId: string;
+  currentAge?: string;
+  currentGender?: string;
+  currentRhythm?: string;
+}> = ({ isOpen, onClose, logId, currentAge, currentGender, currentRhythm }) => {
+  const { db, userId } = useFirebase();
+  const [age, setAge] = useState(currentAge || '');
+  const [gender, setGender] = useState(currentGender || '');
+  const [rhythm, setRhythm] = useState(currentRhythm || '');
+
+  const handleSave = async () => {
+    try {
+      const logPath = `/artifacts/${appId}/users/${userId}/logs/${logId}`;
+      await updateDoc(doc(db, logPath), {
+        patientAge: age || null,
+        patientGender: gender || null,
+        initialRhythm: rhythm || null,
+      });
+      onClose();
+    } catch (e) {
+      console.error("Error updating log:", e);
+    }
+  };
+
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} title="Edit Patient Info">
+      <div className="space-y-4">
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Approx Age</label>
+          <input type="number" value={age} onChange={(e) => setAge(e.target.value)} placeholder="e.g. 45"
+            className="w-full p-3 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg text-gray-900 dark:text-white" />
+        </div>
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Gender</label>
+          <select value={gender} onChange={(e) => setGender(e.target.value)}
+            className="w-full p-3 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg text-gray-900 dark:text-white">
+            <option value="">Unknown</option>
+            <option value="Male">Male</option>
+            <option value="Female">Female</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Initial Rhythm</label>
+          <input type="text" value={rhythm} onChange={(e) => setRhythm(e.target.value)} placeholder="e.g. VF, Asystole"
+            className="w-full p-3 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg text-gray-900 dark:text-white" />
+        </div>
+        <ActionButton title="Save" backgroundColor="bg-blue-600" foregroundColor="text-white" onClick={handleSave} />
+      </div>
+    </Modal>
+  );
+};
+
 const InstallInstructionsModal: React.FC<{
   isOpen: boolean;
   onClose: () => void;
