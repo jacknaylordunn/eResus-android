@@ -34,7 +34,9 @@ import {
   OAuthProvider,
   linkWithCredential,
   EmailAuthProvider,
-  User
+  User,
+  browserLocalPersistence,
+  setPersistence
 } from 'firebase/auth';
 import { 
   Heart, 
@@ -271,6 +273,40 @@ const useAppSettings = () => {
   const [hasRespondedToResearchTerms, setHasRespondedToResearchTerms] = useAppStorage('hasRespondedToResearchTerms', false);
   const [askForPatientInfo, setAskForPatientInfo] = useAppStorage('askForPatientInfo', false);
   const [userOrganization, setUserOrganization] = useAppStorage('userOrganization', '');
+  const [_settingsSyncedFrom, _setSettingsSyncedFrom] = useAppStorage('settingsSyncedFromUid', '');
+
+  // Sync research settings TO Firestore when they change (if authenticated)
+  const syncSettingsToFirestore = useCallback((db: Firestore, userId: string, isAnonymous: boolean) => {
+    if (isAnonymous) return;
+    try {
+      const settingsDocPath = `/artifacts/${appId}/users/${userId}/settings/research`;
+      setDoc(doc(db, settingsDocPath), {
+        researchModeEnabled,
+        askForPatientInfo,
+        userOrganization,
+        hasRespondedToResearchTerms,
+        updatedAt: serverTimestamp(),
+      }, { merge: true }).catch(console.error);
+    } catch { /* non-critical */ }
+  }, [researchModeEnabled, askForPatientInfo, userOrganization, hasRespondedToResearchTerms]);
+
+  // Load research settings FROM Firestore on login
+  const loadSettingsFromFirestore = useCallback(async (db: Firestore, userId: string) => {
+    try {
+      const settingsDocPath = `/artifacts/${appId}/users/${userId}/settings/research`;
+      const settingsDoc = await getDoc(doc(db, settingsDocPath));
+      if (settingsDoc.exists()) {
+        const data = settingsDoc.data();
+        if (data.researchModeEnabled !== undefined) setResearchModeEnabled(data.researchModeEnabled);
+        if (data.askForPatientInfo !== undefined) setAskForPatientInfo(data.askForPatientInfo);
+        if (data.userOrganization) setUserOrganization(data.userOrganization);
+        if (data.hasRespondedToResearchTerms !== undefined) setHasRespondedToResearchTerms(data.hasRespondedToResearchTerms);
+        _setSettingsSyncedFrom(userId);
+      }
+    } catch (e) {
+      console.error("Error loading settings from Firestore:", e);
+    }
+  }, []);
 
   return {
     cprCycleDuration, setCprCycleDuration,
@@ -282,6 +318,7 @@ const useAppSettings = () => {
     hasRespondedToResearchTerms, setHasRespondedToResearchTerms,
     askForPatientInfo, setAskForPatientInfo,
     userOrganization, setUserOrganization,
+    syncSettingsToFirestore, loadSettingsFromFirestore,
   };
 };
 type AppSettingsContextType = ReturnType<typeof useAppSettings>;
@@ -656,6 +693,9 @@ const FirebaseProvider: React.FC<React.PropsWithChildren<{}>> = ({ children }) =
       const app = initializeApp(firebaseConfig);
       const db = getFirestore(app);
       const auth = getAuth(app);
+      
+      // Ensure auth persists across browser sessions (users stay logged in)
+      setPersistence(auth, browserLocalPersistence).catch(console.error);
       
       // Listen for auth state changes FIRST (per best practice)
       const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -3752,6 +3792,19 @@ const SettingsView: React.FC = () => {
             ))}
           </div>
         </div>
+        
+        {/* --- Developer Info --- */}
+        <div className="text-center py-4 space-y-1">
+          <p className="text-xs text-gray-400 dark:text-gray-500">eResus v1.2</p>
+          <a 
+            href="https://tech.aegismedicalsolutions.co.uk" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="text-xs text-gray-400 dark:text-gray-500 hover:text-blue-500 dark:hover:text-blue-400 transition-colors"
+          >
+            Developed by Aegis Medical Solutions Ltd
+          </a>
+        </div>
       </div>
       
       {/* Auth Modal */}
@@ -3870,8 +3923,27 @@ const AppContent: React.FC = () => {
   }, [showNewborn]);
 
   const arrestViewModel = useArrestViewModel();
-  const { appearanceMode, hasRespondedToResearchTerms } = useSettings();
+  const { appearanceMode, hasRespondedToResearchTerms, syncSettingsToFirestore, loadSettingsFromFirestore, researchModeEnabled, askForPatientInfo, userOrganization } = useSettings();
+  const { db, userId, isAnonymous, user } = useFirebase();
   const [showResearchConsent, setShowResearchConsent] = useState(false);
+  const settingsSyncedRef = useRef(false);
+
+  // Sync settings TO Firestore whenever research settings change
+  useEffect(() => {
+    if (!settingsSyncedRef.current) return; // Don't sync on initial load
+    syncSettingsToFirestore(db, userId, isAnonymous);
+  }, [researchModeEnabled, askForPatientInfo, userOrganization, hasRespondedToResearchTerms, db, userId, isAnonymous]);
+
+  // Load settings FROM Firestore on login (non-anonymous)
+  useEffect(() => {
+    if (!isAnonymous && user) {
+      loadSettingsFromFirestore(db, userId).then(() => {
+        settingsSyncedRef.current = true;
+      });
+    } else {
+      settingsSyncedRef.current = true;
+    }
+  }, [isAnonymous, userId, user]);
 
   useEffect(() => {
     const root = window.document.documentElement;
