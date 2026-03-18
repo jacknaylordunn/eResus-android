@@ -3245,7 +3245,7 @@ const LogbookView: React.FC = () => {
             onContextMenu={(e) => { e.preventDefault(); setLongPressLog(longPressLog === log.id ? null : log.id); }}
           >
             <div className="flex justify-between items-start">
-              <button onClick={() => openLog(log)} className="flex-grow text-left">
+              <div onClick={() => openLog(log)} className="flex-grow text-left cursor-pointer">
                 <h3 className="font-semibold text-gray-900 dark:text-white">{log.startTime.toDate().toLocaleDateString()}</h3>
                 <p className="text-sm text-gray-600 dark:text-gray-400">
                   {log.startTime.toDate().toLocaleTimeString()}
@@ -3257,14 +3257,14 @@ const LogbookView: React.FC = () => {
                 {hasPatientInfo(log) ? (
                   <p className="text-xs text-blue-600 dark:text-blue-400 font-semibold mt-1">{getPatientInfoText(log)}</p>
                 ) : showAddInfoPill ? (
-                  <button
+                  <span
                     onClick={(e) => { e.stopPropagation(); setEditingLog(log); }}
-                    className="mt-2 px-3 py-1 text-xs font-semibold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 rounded-full"
+                    className="inline-block mt-2 px-3 py-1 text-xs font-semibold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 rounded-full cursor-pointer"
                   >
                     + Add Patient Info
-                  </button>
+                  </span>
                 ) : null}
-              </button>
+              </div>
               <div className="flex flex-col items-end space-y-1 flex-shrink-0 ml-2">
                 <button onClick={() => setEditingLog(log)} className="p-1.5 text-gray-400 hover:text-blue-500">
                   <Pencil size={16} />
