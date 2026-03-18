@@ -1631,25 +1631,19 @@ const PatientInfoPromptView: React.FC<{ isOpen: boolean; onClose: () => void }> 
 // v1.2: Research Consent View
 const ResearchConsentView: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isOpen, onClose }) => {
   const { researchModeEnabled, setResearchModeEnabled, setHasRespondedToResearchTerms, userOrganization, setUserOrganization } = useSettings();
+  const { db } = useFirebase();
   const [orgName, setOrgName] = useState(userOrganization || 'Independent / None');
   const [availableOrgs, setAvailableOrgs] = useState<string[]>(['Independent / None']);
 
+  // Live-updating org picker via onSnapshot
   useEffect(() => {
     if (!isOpen) return;
-    // Fetch organizations from Firebase
-    const fetchOrgs = async () => {
-      try {
-        const { getApps } = await import('firebase/app');
-        const apps = getApps();
-        if (apps.length === 0) return;
-        const db = getFirestore(apps[0]);
-        const snapshot = await getDocs(collection(db, 'organizations'));
-        const orgs = snapshot.docs.map(d => d.data().name as string).filter(Boolean).sort();
-        setAvailableOrgs(['Independent / None', ...orgs]);
-      } catch { /* ignore */ }
-    };
-    fetchOrgs();
-  }, [isOpen]);
+    const unsubscribe = onSnapshot(collection(db, 'organizations'), (snapshot) => {
+      const orgs = snapshot.docs.map(d => d.data().name as string).filter(Boolean).sort();
+      setAvailableOrgs(['Independent / None', ...orgs]);
+    }, () => { /* ignore errors */ });
+    return () => unsubscribe();
+  }, [isOpen, db]);
 
   if (!isOpen) return null;
 
