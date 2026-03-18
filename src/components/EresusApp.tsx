@@ -1418,8 +1418,8 @@ ${[...events].sort((a, b) => a.timestamp - b.timestamp).map(e => `[${TimeFormatt
     localStorage.removeItem(ARREST_SESSION_KEY);
   };
 
-  // v1.2: Offline Log Sweeper
-  const syncOfflineLogs = async () => {
+  // v1.2: Offline Log Sweeper — runs on every app open/focus
+  const syncOfflineLogs = useCallback(async () => {
     if (!researchModeEnabled) return;
     try {
       const logsCollectionPath = `/artifacts/${appId}/users/${userId}/logs`;
@@ -1459,15 +1459,27 @@ ${[...events].sort((a, b) => a.timestamp - b.timestamp).map(e => `[${TimeFormatt
           console.error("Error syncing log:", logDoc.id, e);
         }
       }
+      if (snapshot.size > 0) console.log(`Synced ${snapshot.size} offline logs`);
     } catch (e) {
       console.error("Error sweeping offline logs:", e);
     }
-  };
+  }, [db, userId, researchModeEnabled]);
 
-  // Run sweep on mount
+  // Run sweep on mount AND when app regains focus (e.g. switching tabs/reopening)
   useEffect(() => {
     syncOfflineLogs();
-  }, []);
+    
+    const handleFocus = () => {
+      syncOfflineLogs();
+    };
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') syncOfflineLogs();
+    });
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [syncOfflineLogs]);
 
   // v1.2: QR Session Transfer
   const generateTransferState = () => {
