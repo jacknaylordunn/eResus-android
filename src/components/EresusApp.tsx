@@ -1855,11 +1855,18 @@ const InstallInstructionsModal: React.FC<{
 
 const SummaryView: React.FC<{ isOpen: boolean; onClose: () => void; }> = ({ isOpen, onClose }) => {
   const { events, totalArrestTime, copySummaryToClipboard, shockCount, adrenalineCount, amiodaroneCount, lidocaineCount, roscTime, startTime } = useArrest();
+  const [copied, setCopied] = useState(false);
   
   const sortedEvents = useMemo(() => 
     [...events].sort((a, b) => a.timestamp - b.timestamp), 
     [events]
   );
+
+  const handleCopy = () => {
+    copySummaryToClipboard();
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Event Summary">
@@ -1892,16 +1899,25 @@ const SummaryView: React.FC<{ isOpen: boolean; onClose: () => void; }> = ({ isOp
           ))}
         </div>
         
-        <ActionButton
-          title="Copy to Clipboard"
-          icon={<Clipboard size={18} />}
-          backgroundColor="bg-blue-600"
-          foregroundColor="text-white"
-          onClick={() => {
-            copySummaryToClipboard();
-            onClose();
-          }}
-        />
+        <div className="flex space-x-3">
+          <ActionButton
+            title="Done"
+            backgroundColor="bg-gray-200 dark:bg-gray-700"
+            foregroundColor="text-gray-800 dark:text-gray-200"
+            onClick={onClose}
+          />
+          <button
+            onClick={handleCopy}
+            className={`flex-1 flex items-center justify-center space-x-2 h-14 rounded-xl font-semibold shadow-md transition-all duration-300 active:scale-95 ${
+              copied 
+                ? 'bg-green-600 text-white' 
+                : 'bg-blue-600 text-white'
+            }`}
+          >
+            {copied ? <Check size={18} /> : <Clipboard size={18} />}
+            <span>{copied ? 'Copied!' : 'Copy'}</span>
+          </button>
+        </div>
       </div>
     </Modal>
   );
@@ -2554,6 +2570,9 @@ const ActiveArrestContentView: React.FC<{
       />
       
       <EventLogView events={events} />
+      
+      {/* v1.2: Transfer Arrest pill at bottom of event log */}
+      <TransferArrestPill />
     </div>
   );
 };
@@ -2593,6 +2612,7 @@ const RoscView: React.FC<{
       
       <AlgorithmGridView onShowPdf={onShowPdf} />
       <EventLogView events={events} />
+      <TransferArrestPill />
     </div>
   );
 };
@@ -2611,11 +2631,29 @@ const EndedView: React.FC<{
       />
       <AlgorithmGridView onShowPdf={onShowPdf} />
       <EventLogView events={events} />
+      <TransferArrestPill />
     </div>
   );
 };
 
-// --- Reusable Components ---
+// v1.2: Transfer Arrest Pill (shown at bottom of event log)
+const TransferArrestPill: React.FC = () => {
+  const [showTransfer, setShowTransfer] = useState(false);
+  return (
+    <>
+      <button
+        onClick={() => setShowTransfer(true)}
+        className="w-full flex items-center justify-center space-x-2 py-3 px-4 rounded-full bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 font-semibold text-sm transition-all active:scale-95"
+      >
+        <QrCode size={16} />
+        <span>Transfer Arrest</span>
+      </button>
+      <SessionTransferModal isOpen={showTransfer} onClose={() => setShowTransfer(false)} />
+    </>
+  );
+};
+
+
 
 const ActionGridView: React.FC<{
   onShowOtherDrugs: () => void;
@@ -3057,21 +3095,23 @@ const ArrestView: React.FC<{
 // --- LogbookView ---
 const LogbookView: React.FC = () => {
   const { db, userId } = useFirebase();
-  const [logs, setLogs] = useState<SavedArrestLog[]>([]);
-  const [selectedLog, setSelectedLog] = useState<SavedArrestLog | null>(null);
+  const { askForPatientInfo, researchModeEnabled } = useSettings();
+  const [logs, setLogs] = useState<any[]>([]);
+  const [selectedLog, setSelectedLog] = useState<any | null>(null);
   const [selectedLogEvents, setSelectedLogEvents] = useState<Event[]>([]);
+  const [editingLog, setEditingLog] = useState<any | null>(null);
+  const [longPressLog, setLongPressLog] = useState<string | null>(null);
   
   useEffect(() => {
     const logsCollectionPath = `/artifacts/${appId}/users/${userId}/logs`;
     const q = query(collection(db, logsCollectionPath), where("userId", "==", userId));
     
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const fetchedLogs: SavedArrestLog[] = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      } as SavedArrestLog));
-      // Sort in memory
-      fetchedLogs.sort((a, b) => b.startTime.toMillis() - a.startTime.toMillis());
+      const fetchedLogs = snapshot.docs.map(d => ({
+        id: d.id,
+        ...d.data()
+      }));
+      fetchedLogs.sort((a: any, b: any) => b.startTime.toMillis() - a.startTime.toMillis());
       setLogs(fetchedLogs);
     }, (error) => {
       console.error("Error fetching logs: ", error);
@@ -3080,13 +3120,13 @@ const LogbookView: React.FC = () => {
     return () => unsubscribe();
   }, [db, userId]);
 
-  const openLog = async (log: SavedArrestLog) => {
+  const openLog = async (log: any) => {
     if (!log.id) return;
     setSelectedLog(log);
     try {
       const eventsCollectionPath = `/artifacts/${appId}/users/${userId}/logs/${log.id}/events`;
       const eventsSnapshot = await getDocs(collection(db, eventsCollectionPath));
-      const fetchedEvents: Event[] = eventsSnapshot.docs.map(doc => doc.data() as Event);
+      const fetchedEvents: Event[] = eventsSnapshot.docs.map(d => d.data() as Event);
       fetchedEvents.sort((a, b) => a.timestamp - b.timestamp);
       setSelectedLogEvents(fetchedEvents);
     } catch (e) {
@@ -3098,14 +3138,22 @@ const LogbookView: React.FC = () => {
   const deleteLog = async (logId: string) => {
     if (window.confirm("Are you sure you want to delete this log?")) {
       try {
-        // Note: Deleting subcollections is complex. This only deletes the main log doc.
-        // A full implementation would need a cloud function to delete subcollections.
         const logDocPath = `/artifacts/${appId}/users/${userId}/logs/${logId}`;
         await deleteDoc(doc(db, logDocPath));
       } catch (e) {
         console.error("Error deleting log: ", e);
       }
     }
+  };
+
+  const hasPatientInfo = (log: any) => !!(log.patientAge || log.patientGender);
+  const showAddInfoPill = (askForPatientInfo || researchModeEnabled);
+
+  const getPatientInfoText = (log: any) => {
+    const parts: string[] = [];
+    if (log.patientAge) parts.push(`${log.patientAge} y/o`);
+    if (log.patientGender) parts.push(log.patientGender);
+    return parts.join(' ');
   };
 
   return (
@@ -3118,23 +3166,60 @@ const LogbookView: React.FC = () => {
         {logs.length === 0 && (
           <p className="text-center text-gray-500 dark:text-gray-400 pt-10">No saved logs.</p>
         )}
-        {logs.map(log => (
-          <div key={log.id} className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow flex justify-between items-center">
-            <button onClick={() => openLog(log)} className="flex-grow text-left">
-              <h3 className="font-semibold text-gray-900 dark:text-white">{log.startTime.toDate().toLocaleDateString()}</h3>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
-                {log.startTime.toDate().toLocaleTimeString()}
-              </p>
-              <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
-                Duration: {TimeFormatter.format(log.totalDuration)} | Outcome: {log.finalOutcome}
-              </p>
-            </button>
-            <button 
-              onClick={() => log.id && deleteLog(log.id)}
-              className="p-2 text-red-500 hover:text-red-700"
-            >
-              <XSquare size={20} />
-            </button>
+        {logs.map((log: any) => (
+          <div 
+            key={log.id} 
+            className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow relative"
+            onContextMenu={(e) => { e.preventDefault(); setLongPressLog(longPressLog === log.id ? null : log.id); }}
+          >
+            <div className="flex justify-between items-start">
+              <button onClick={() => openLog(log)} className="flex-grow text-left">
+                <h3 className="font-semibold text-gray-900 dark:text-white">{log.startTime.toDate().toLocaleDateString()}</h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  {log.startTime.toDate().toLocaleTimeString()}
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
+                  Duration: {TimeFormatter.format(log.totalDuration)} | Outcome: {log.finalOutcome}
+                </p>
+                {/* v1.2: Patient info display or add pill */}
+                {hasPatientInfo(log) ? (
+                  <p className="text-xs text-blue-600 dark:text-blue-400 font-semibold mt-1">{getPatientInfoText(log)}</p>
+                ) : showAddInfoPill ? (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setEditingLog(log); }}
+                    className="mt-2 px-3 py-1 text-xs font-semibold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 rounded-full"
+                  >
+                    + Add Patient Info
+                  </button>
+                ) : null}
+              </button>
+              <div className="flex flex-col items-end space-y-1 flex-shrink-0 ml-2">
+                <button onClick={() => setEditingLog(log)} className="p-1.5 text-gray-400 hover:text-blue-500">
+                  <Pencil size={16} />
+                </button>
+                <button onClick={() => log.id && deleteLog(log.id)} className="p-1.5 text-gray-400 hover:text-red-500">
+                  <XSquare size={16} />
+                </button>
+              </div>
+            </div>
+            
+            {/* Long-press context menu */}
+            {longPressLog === log.id && (
+              <div className="absolute top-full left-4 right-4 mt-1 bg-white dark:bg-gray-700 rounded-lg shadow-xl z-10 border border-gray-200 dark:border-gray-600 overflow-hidden">
+                <button onClick={() => { setEditingLog(log); setLongPressLog(null); }}
+                  className="w-full text-left px-4 py-3 text-sm text-gray-800 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600 flex items-center space-x-2">
+                  <Pencil size={14} /> <span>Edit Patient Info</span>
+                </button>
+                <button onClick={() => { openLog(log); setLongPressLog(null); }}
+                  className="w-full text-left px-4 py-3 text-sm text-gray-800 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600 flex items-center space-x-2">
+                  <FileText size={14} /> <span>View Summary</span>
+                </button>
+                <button onClick={() => { log.id && deleteLog(log.id); setLongPressLog(null); }}
+                  className="w-full text-left px-4 py-3 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center space-x-2">
+                  <XSquare size={14} /> <span>Delete</span>
+                </button>
+              </div>
+            )}
           </div>
         ))}
       </div>
@@ -3171,6 +3256,18 @@ const LogbookView: React.FC = () => {
           </div>
         </Modal>
       )}
+      
+      {/* v1.2: Edit Log Patient Info Modal */}
+      {editingLog && (
+        <EditLogPatientInfoModal
+          isOpen={!!editingLog}
+          onClose={() => setEditingLog(null)}
+          logId={editingLog.id}
+          currentAge={editingLog.patientAge}
+          currentGender={editingLog.patientGender}
+          currentRhythm={editingLog.initialRhythm}
+        />
+      )}
     </div>
   );
 };
@@ -3183,7 +3280,27 @@ const SettingsView: React.FC = () => {
     metronomeBPM, setMetronomeBPM,
     appearanceMode, setAppearanceMode,
     showDosagePrompts, setShowDosagePrompts,
+    researchModeEnabled, setResearchModeEnabled,
+    askForPatientInfo, setAskForPatientInfo,
+    userOrganization, setUserOrganization,
   } = useSettings();
+  
+  const [availableOrgs, setAvailableOrgs] = useState<string[]>(['Independent / None']);
+  
+  useEffect(() => {
+    const fetchOrgs = async () => {
+      try {
+        const { getApps } = await import('firebase/app');
+        const apps = getApps();
+        if (apps.length === 0) return;
+        const db = getFirestore(apps[0]);
+        const snapshot = await getDocs(collection(db, 'organizations'));
+        const orgs = snapshot.docs.map(d => d.data().name as string).filter(Boolean).sort();
+        setAvailableOrgs(['Independent / None', ...orgs]);
+      } catch { /* ignore */ }
+    };
+    fetchOrgs();
+  }, []);
 
   const appearanceOptions = [
     { value: AppearanceMode.System, label: "System", icon: <Laptop size={20} /> },
@@ -3238,6 +3355,41 @@ const SettingsView: React.FC = () => {
             onChange={setShowDosagePrompts}
             description="When enabled, the app will ask for patient age or a manual dose when you log Adrenaline, Amiodarone, or other drugs."
           />
+        </div>
+        
+        {/* --- Research & Data (v1.2) --- */}
+        <div className="p-4 bg-white dark:bg-gray-800 rounded-xl shadow-lg space-y-4">
+          <h3 className="font-semibold text-gray-700 dark:text-gray-300 flex items-center space-x-2">
+            <BarChart3 size={18} />
+            <span>Research & Data</span>
+          </h3>
+          <SettingToggle
+            label="Research Mode"
+            enabled={researchModeEnabled}
+            onChange={setResearchModeEnabled}
+            description="When enabled, anonymised arrest data is uploaded to help improve cardiac arrest outcomes research."
+          />
+          <SettingToggle
+            label="Ask for Patient Info"
+            enabled={askForPatientInfo}
+            onChange={setAskForPatientInfo}
+            description="Prompt for approximate patient age and gender when starting an arrest."
+          />
+          <div className="space-y-2">
+            <span className="text-gray-800 dark:text-gray-200 text-sm">Organisation</span>
+            <select
+              value={userOrganization || 'Independent / None'}
+              onChange={(e) => setUserOrganization(e.target.value)}
+              className="w-full p-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg text-gray-900 dark:text-white text-sm"
+            >
+              {availableOrgs.map(org => <option key={org} value={org}>{org}</option>)}
+            </select>
+          </div>
+          <a href="https://tech.aegismedicalsolutions.co.uk/eresus/data-policy" target="_blank" rel="noopener noreferrer"
+            className="text-sm text-blue-600 dark:text-blue-400 underline flex items-center space-x-1">
+            <ExternalLink size={14} />
+            <span>Data Collection Policy</span>
+          </a>
         </div>
         
         {/* --- Appearance --- */}
@@ -3375,7 +3527,8 @@ const AppContent: React.FC = () => {
   }, [showNewborn]);
 
   const arrestViewModel = useArrestViewModel();
-  const { appearanceMode } = useSettings();
+  const { appearanceMode, hasRespondedToResearchTerms } = useSettings();
+  const [showResearchConsent, setShowResearchConsent] = useState(false);
 
   useEffect(() => {
     const root = window.document.documentElement;
@@ -3398,6 +3551,13 @@ const AppContent: React.FC = () => {
       setShowInstallModal(true);
     }
   }, []);
+  
+  // v1.2: Show research consent on first launch (after install modal)
+  useEffect(() => {
+    if (!showInstallModal && !hasRespondedToResearchTerms) {
+      setShowResearchConsent(true);
+    }
+  }, [showInstallModal, hasRespondedToResearchTerms]);
   
   const handleCloseInstallModal = () => {
     localStorage.setItem('eResusSeenInstallInstructions', 'true');
@@ -3464,6 +3624,8 @@ const AppContent: React.FC = () => {
         {/* Modals */}
         {pdfToShow && <PDFView pdf={pdfToShow} onClose={() => setPdfToShow(null)} />}
         <InstallInstructionsModal isOpen={showInstallModal} onClose={handleCloseInstallModal} />
+        <ResearchConsentView isOpen={showResearchConsent} onClose={() => setShowResearchConsent(false)} />
+        <PatientInfoPromptView isOpen={arrestViewModel.showPatientInfoPrompt} onClose={() => arrestViewModel.setShowPatientInfoPrompt(false)} />
       </div>
     </ArrestContext.Provider>
   );
