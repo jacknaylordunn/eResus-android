@@ -1840,6 +1840,22 @@ const EditLogPatientInfoModal: React.FC<{
         patientAge: age || null,
         patientGender: gender || null,
       });
+      
+      // Also update research collection if the log was synced there
+      try {
+        const researchDocRef = doc(db, 'arrestLogs', logId);
+        const researchDoc = await getDoc(researchDocRef);
+        if (researchDoc.exists()) {
+          await updateDoc(researchDocRef, {
+            patientAge: age || 'Unknown',
+            patientGender: gender || 'Unknown',
+          });
+        }
+      } catch (e) {
+        // Research doc may not exist — non-critical
+        console.warn("Could not update research log:", e);
+      }
+      
       onClose();
     } catch (e) {
       console.error("Error updating log:", e);
