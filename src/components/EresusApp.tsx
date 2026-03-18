@@ -608,6 +608,45 @@ interface FirebaseContextType {
 const FirebaseContext = createContext<FirebaseContextType | null>(null);
 const useFirebase = () => useContext(FirebaseContext)!;
 
+const googleProvider = new GoogleAuthProvider();
+googleProvider.setCustomParameters({ client_id: '118352301751-uqa88f4vsfkquo2o0rairbo61s38kl1j.apps.googleusercontent.com' });
+
+const appleProvider = new OAuthProvider('apple.com');
+appleProvider.addScope('email');
+appleProvider.addScope('name');
+
+// Migrate anonymous logs to new authenticated user
+const migrateAnonymousLogs = async (db: Firestore, oldUserId: string, newUserId: string) => {
+  if (oldUserId === newUserId) return;
+  try {
+    const oldLogsPath = `/artifacts/${appId}/users/${oldUserId}/logs`;
+    const newLogsPath = `/artifacts/${appId}/users/${newUserId}/logs`;
+    const oldLogsSnap = await getDocs(collection(db, oldLogsPath));
+    
+    for (const logDoc of oldLogsSnap.docs) {
+      const data = logDoc.data();
+      // Copy log to new user path
+      const newLogRef = doc(db, newLogsPath, logDoc.id);
+      await setDoc(newLogRef, { ...data, userId: newUserId });
+      
+      // Copy events subcollection
+      const oldEventsSnap = await getDocs(collection(db, `${oldLogsPath}/${logDoc.id}/events`));
+      for (const eventDoc of oldEventsSnap.docs) {
+        await setDoc(doc(db, `${newLogsPath}/${logDoc.id}/events`, eventDoc.id), eventDoc.data());
+      }
+      
+      // Delete old log
+      for (const eventDoc of oldEventsSnap.docs) {
+        await deleteDoc(doc(db, `${oldLogsPath}/${logDoc.id}/events`, eventDoc.id));
+      }
+      await deleteDoc(doc(db, oldLogsPath, logDoc.id));
+    }
+    console.log(`Migrated ${oldLogsSnap.size} logs from ${oldUserId} to ${newUserId}`);
+  } catch (e) {
+    console.error("Error migrating logs:", e);
+  }
+};
+
 const FirebaseProvider: React.FC<React.PropsWithChildren<{}>> = ({ children }) => {
   const [services, setServices] = useState<FirebaseContextType | null>(null);
   const [authReady, setAuthReady] = useState(false);
@@ -621,11 +660,11 @@ const FirebaseProvider: React.FC<React.PropsWithChildren<{}>> = ({ children }) =
       // Listen for auth state changes FIRST (per best practice)
       const unsubscribe = onAuthStateChanged(auth, async (user) => {
         if (user) {
-          // User is signed in (anonymous or email)
-          // Migrate old localStorage userId data path if needed
+          // Migrate old localStorage userId data if transitioning from anonymous
           const oldUserId = localStorage.getItem('eresus_user_id');
-          if (oldUserId && oldUserId !== user.uid) {
-            localStorage.setItem('eresus_user_id_migrated_from', oldUserId);
+          if (oldUserId && oldUserId !== user.uid && !user.isAnonymous) {
+            // User just signed in — migrate their anonymous logs
+            migrateAnonymousLogs(db, oldUserId, user.uid);
           }
           localStorage.setItem('eresus_user_id', user.uid);
           
@@ -642,7 +681,6 @@ const FirebaseProvider: React.FC<React.PropsWithChildren<{}>> = ({ children }) =
             // onAuthStateChanged will fire again with the anonymous user
           } catch (e) {
             console.error("Anonymous sign-in failed, falling back to device ID:", e);
-            // Fallback to device-based ID
             const getOrCreateUserId = () => {
               const stored = localStorage.getItem('eresus_user_id');
               if (stored) return stored;
