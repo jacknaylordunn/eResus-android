@@ -25,6 +25,10 @@ import {
   signInAnonymously as fbSignInAnonymously, 
   signInWithCustomToken, 
   onAuthStateChanged,
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  signOut,
+  sendPasswordResetEmail,
   User
 } from 'firebase/auth';
 import { 
@@ -586,7 +590,7 @@ const DosageCalculator = {
 };
 
 //============================================================================
-// FIREBASE CONTEXT
+// FIREBASE CONTEXT & AUTH
 //============================================================================
 interface FirebaseContextType {
   app: FirebaseApp;
@@ -594,12 +598,14 @@ interface FirebaseContextType {
   auth: Auth;
   user: User | null;
   userId: string;
+  isAnonymous: boolean;
 }
 const FirebaseContext = createContext<FirebaseContextType | null>(null);
 const useFirebase = () => useContext(FirebaseContext)!;
 
 const FirebaseProvider: React.FC<React.PropsWithChildren<{}>> = ({ children }) => {
   const [services, setServices] = useState<FirebaseContextType | null>(null);
+  const [authReady, setAuthReady] = useState(false);
 
   useEffect(() => {
     try {
@@ -607,30 +613,56 @@ const FirebaseProvider: React.FC<React.PropsWithChildren<{}>> = ({ children }) =
       const db = getFirestore(app);
       const auth = getAuth(app);
       
-      // Generate a userId from localStorage or create new one
-      const getOrCreateUserId = () => {
-        const stored = localStorage.getItem('eresus_user_id');
-        if (stored) return stored;
-        const newId = crypto.randomUUID();
-        localStorage.setItem('eresus_user_id', newId);
-        return newId;
-      };
-      
-      const userId = getOrCreateUserId();
-      
-      setServices({
-        app,
-        db,
-        auth,
-        user: null,
-        userId: userId,
+      // Listen for auth state changes FIRST (per best practice)
+      const unsubscribe = onAuthStateChanged(auth, async (user) => {
+        if (user) {
+          // User is signed in (anonymous or email)
+          // Migrate old localStorage userId data path if needed
+          const oldUserId = localStorage.getItem('eresus_user_id');
+          if (oldUserId && oldUserId !== user.uid) {
+            localStorage.setItem('eresus_user_id_migrated_from', oldUserId);
+          }
+          localStorage.setItem('eresus_user_id', user.uid);
+          
+          setServices({
+            app, db, auth,
+            user,
+            userId: user.uid,
+            isAnonymous: user.isAnonymous,
+          });
+        } else {
+          // No user — sign in anonymously as fallback
+          try {
+            await fbSignInAnonymously(auth);
+            // onAuthStateChanged will fire again with the anonymous user
+          } catch (e) {
+            console.error("Anonymous sign-in failed, falling back to device ID:", e);
+            // Fallback to device-based ID
+            const getOrCreateUserId = () => {
+              const stored = localStorage.getItem('eresus_user_id');
+              if (stored) return stored;
+              const newId = crypto.randomUUID();
+              localStorage.setItem('eresus_user_id', newId);
+              return newId;
+            };
+            setServices({
+              app, db, auth,
+              user: null,
+              userId: getOrCreateUserId(),
+              isAnonymous: true,
+            });
+          }
+        }
+        setAuthReady(true);
       });
+      
+      return () => unsubscribe();
     } catch (e) {
       console.error("Failed to initialize Firebase", e);
     }
   }, []);
 
-  if (!services) {
+  if (!services || !authReady) {
     return (
       <div className="flex items-center justify-center h-screen bg-gray-100 dark:bg-gray-900">
         <div className="flex flex-col items-center">
@@ -1599,25 +1631,19 @@ const PatientInfoPromptView: React.FC<{ isOpen: boolean; onClose: () => void }> 
 // v1.2: Research Consent View
 const ResearchConsentView: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isOpen, onClose }) => {
   const { researchModeEnabled, setResearchModeEnabled, setHasRespondedToResearchTerms, userOrganization, setUserOrganization } = useSettings();
+  const { db } = useFirebase();
   const [orgName, setOrgName] = useState(userOrganization || 'Independent / None');
   const [availableOrgs, setAvailableOrgs] = useState<string[]>(['Independent / None']);
 
+  // Live-updating org picker via onSnapshot
   useEffect(() => {
     if (!isOpen) return;
-    // Fetch organizations from Firebase
-    const fetchOrgs = async () => {
-      try {
-        const { getApps } = await import('firebase/app');
-        const apps = getApps();
-        if (apps.length === 0) return;
-        const db = getFirestore(apps[0]);
-        const snapshot = await getDocs(collection(db, 'organizations'));
-        const orgs = snapshot.docs.map(d => d.data().name as string).filter(Boolean).sort();
-        setAvailableOrgs(['Independent / None', ...orgs]);
-      } catch { /* ignore */ }
-    };
-    fetchOrgs();
-  }, [isOpen]);
+    const unsubscribe = onSnapshot(collection(db, 'organizations'), (snapshot) => {
+      const orgs = snapshot.docs.map(d => d.data().name as string).filter(Boolean).sort();
+      setAvailableOrgs(['Independent / None', ...orgs]);
+    }, () => { /* ignore errors */ });
+    return () => unsubscribe();
+  }, [isOpen, db]);
 
   if (!isOpen) return null;
 
@@ -3272,6 +3298,138 @@ const LogbookView: React.FC = () => {
   );
 };
 
+// --- AuthView Modal ---
+const AuthView: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isOpen, onClose }) => {
+  const { auth, user, isAnonymous } = useFirebase();
+  const [mode, setMode] = useState<'login' | 'register' | 'reset'>('login');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [resetSent, setResetSent] = useState(false);
+
+  const handleSubmit = async () => {
+    if (!email || (!password && mode !== 'reset')) return;
+    setLoading(true);
+    setError('');
+    try {
+      if (mode === 'login') {
+        await signInWithEmailAndPassword(auth, email, password);
+        onClose();
+      } else if (mode === 'register') {
+        await createUserWithEmailAndPassword(auth, email, password);
+        onClose();
+      } else if (mode === 'reset') {
+        await sendPasswordResetEmail(auth, email);
+        setResetSent(true);
+      }
+    } catch (e: any) {
+      const msg = e?.code === 'auth/user-not-found' ? 'No account found with that email.'
+        : e?.code === 'auth/wrong-password' ? 'Incorrect password.'
+        : e?.code === 'auth/email-already-in-use' ? 'An account with this email already exists.'
+        : e?.code === 'auth/weak-password' ? 'Password must be at least 6 characters.'
+        : e?.code === 'auth/invalid-email' ? 'Please enter a valid email address.'
+        : e?.message || 'An error occurred.';
+      setError(msg);
+    }
+    setLoading(false);
+  };
+
+  const handleSignOut = async () => {
+    try {
+      await signOut(auth);
+      onClose();
+    } catch (e) {
+      console.error("Sign out error:", e);
+    }
+  };
+
+  if (!isOpen) return null;
+
+  // If already signed in with email, show account info
+  if (user && !isAnonymous) {
+    return (
+      <Modal isOpen={isOpen} onClose={onClose} title="Account">
+        <div className="space-y-4 text-center">
+          <div className="w-16 h-16 mx-auto rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center">
+            <UserIcon size={32} className="text-blue-600 dark:text-blue-400" />
+          </div>
+          <p className="text-gray-700 dark:text-gray-300">Signed in as</p>
+          <p className="font-semibold text-gray-900 dark:text-white">{user.email}</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400">Your arrest logs are synced with this account.</p>
+          <ActionButton title="Sign Out" backgroundColor="bg-red-600" foregroundColor="text-white" onClick={handleSignOut} />
+        </div>
+      </Modal>
+    );
+  }
+
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} title={mode === 'reset' ? 'Reset Password' : mode === 'register' ? 'Create Account' : 'Sign In'}>
+      <div className="space-y-4">
+        {mode === 'reset' && resetSent ? (
+          <div className="text-center space-y-3">
+            <CheckCircle2 size={48} className="text-green-500 mx-auto" />
+            <p className="text-gray-700 dark:text-gray-300">Password reset email sent to <strong>{email}</strong>.</p>
+            <ActionButton title="Back to Sign In" backgroundColor="bg-blue-600" foregroundColor="text-white" onClick={() => { setMode('login'); setResetSent(false); }} />
+          </div>
+        ) : (
+          <>
+            <p className="text-sm text-gray-500 dark:text-gray-400 text-center">
+              {mode === 'reset' 
+                ? 'Enter your email to receive a password reset link.'
+                : 'Sign in to sync your arrest logs across devices and contribute to research.'}
+            </p>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="Email address"
+              className="w-full p-3 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg text-gray-900 dark:text-white"
+            />
+            {mode !== 'reset' && (
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Password"
+                className="w-full p-3 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg text-gray-900 dark:text-white"
+              />
+            )}
+            {error && <p className="text-sm text-red-500 text-center">{error}</p>}
+            <ActionButton
+              title={loading ? 'Please wait...' : mode === 'reset' ? 'Send Reset Link' : mode === 'register' ? 'Create Account' : 'Sign In'}
+              backgroundColor="bg-blue-600"
+              foregroundColor="text-white"
+              onClick={handleSubmit}
+              disabled={loading}
+            />
+            {mode === 'login' && (
+              <>
+                <button onClick={() => { setMode('register'); setError(''); }} className="w-full text-center text-sm text-blue-600 dark:text-blue-400">
+                  Don't have an account? Create one
+                </button>
+                <button onClick={() => { setMode('reset'); setError(''); }} className="w-full text-center text-sm text-gray-500 dark:text-gray-400">
+                  Forgot password?
+                </button>
+              </>
+            )}
+            {mode === 'register' && (
+              <button onClick={() => { setMode('login'); setError(''); }} className="w-full text-center text-sm text-blue-600 dark:text-blue-400">
+                Already have an account? Sign in
+              </button>
+            )}
+            {mode === 'reset' && (
+              <button onClick={() => { setMode('login'); setError(''); setResetSent(false); }} className="w-full text-center text-sm text-blue-600 dark:text-blue-400">
+                Back to Sign In
+              </button>
+            )}
+          </>
+        )}
+      </div>
+    </Modal>
+  );
+};
+
 // --- SettingsView ---
 const SettingsView: React.FC = () => {
   const {
@@ -3284,23 +3442,21 @@ const SettingsView: React.FC = () => {
     askForPatientInfo, setAskForPatientInfo,
     userOrganization, setUserOrganization,
   } = useSettings();
+  const { user, isAnonymous, db } = useFirebase();
   
   const [availableOrgs, setAvailableOrgs] = useState<string[]>(['Independent / None']);
+  const [showAuthModal, setShowAuthModal] = useState(false);
   
+  // Live-updating org picker via onSnapshot
   useEffect(() => {
-    const fetchOrgs = async () => {
-      try {
-        const { getApps } = await import('firebase/app');
-        const apps = getApps();
-        if (apps.length === 0) return;
-        const db = getFirestore(apps[0]);
-        const snapshot = await getDocs(collection(db, 'organizations'));
-        const orgs = snapshot.docs.map(d => d.data().name as string).filter(Boolean).sort();
-        setAvailableOrgs(['Independent / None', ...orgs]);
-      } catch { /* ignore */ }
-    };
-    fetchOrgs();
-  }, []);
+    const unsubscribe = onSnapshot(collection(db, 'organizations'), (snapshot) => {
+      const orgs = snapshot.docs.map(d => d.data().name as string).filter(Boolean).sort();
+      setAvailableOrgs(['Independent / None', ...orgs]);
+    }, (err) => {
+      console.error("Error listening to organizations:", err);
+    });
+    return () => unsubscribe();
+  }, [db]);
 
   const appearanceOptions = [
     { value: AppearanceMode.System, label: "System", icon: <Laptop size={20} /> },
@@ -3315,6 +3471,35 @@ const SettingsView: React.FC = () => {
       </div>
       
       <div className="flex-grow overflow-y-auto bg-gray-100 dark:bg-gray-900 p-4 space-y-6">
+        {/* --- Account (v1.2) --- */}
+        <div className="p-4 bg-white dark:bg-gray-800 rounded-xl shadow-lg space-y-4">
+          <h3 className="font-semibold text-gray-700 dark:text-gray-300 flex items-center space-x-2">
+            <UserIcon size={18} />
+            <span>Account</span>
+          </h3>
+          {user && !isAnonymous ? (
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-900 dark:text-white font-medium">{user.email}</p>
+                <p className="text-xs text-green-600 dark:text-green-400">Signed in</p>
+              </div>
+              <button onClick={() => setShowAuthModal(true)} className="px-3 py-1.5 text-sm font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 rounded-lg">
+                Manage
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-700 dark:text-gray-300">Anonymous</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Sign in to sync logs across devices</p>
+              </div>
+              <button onClick={() => setShowAuthModal(true)} className="px-3 py-1.5 text-sm font-medium text-white bg-blue-600 rounded-lg active:scale-95 transition-transform">
+                Sign In
+              </button>
+            </div>
+          )}
+        </div>
+        
         {/* --- Timers --- */}
         <div className="p-4 bg-white dark:bg-gray-800 rounded-xl shadow-lg space-y-4">
           <h3 className="font-semibold text-gray-700 dark:text-gray-300">Timers</h3>
@@ -3413,6 +3598,9 @@ const SettingsView: React.FC = () => {
           </div>
         </div>
       </div>
+      
+      {/* Auth Modal */}
+      <AuthView isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} />
     </div>
   );
 };
