@@ -694,6 +694,12 @@ const useArrestViewModel = () => {
   const [postROSCTasks, setPostROSCTasks] = useState<ChecklistItem[]>(s?.postROSCTasks ?? AppConstants.postROSCTasksTemplate());
   const [postMortemTasks, setPostMortemTasks] = useState<ChecklistItem[]>(s?.postMortemTasks ?? AppConstants.postMortemTasksTemplate());
   const [patientAgeCategory, setPatientAgeCategory] = useState<PatientAgeCategory | null>(s?.patientAgeCategory ?? null);
+  
+  // v1.2 Research State
+  const [patientAgeStr, setPatientAgeStr] = useState(s?.patientAgeStr ?? '');
+  const [patientGenderStr, setPatientGenderStr] = useState(s?.patientGenderStr ?? '');
+  const [initialRhythm, setInitialRhythm] = useState<string | null>(s?.initialRhythm ?? null);
+  const [showPatientInfoPrompt, setShowPatientInfoPrompt] = useState(false);
 
   // --- Private State Properties ---
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
