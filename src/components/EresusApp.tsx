@@ -2636,7 +2636,24 @@ const EndedView: React.FC<{
   );
 };
 
-// --- Reusable Components ---
+// v1.2: Transfer Arrest Pill (shown at bottom of event log)
+const TransferArrestPill: React.FC = () => {
+  const [showTransfer, setShowTransfer] = useState(false);
+  return (
+    <>
+      <button
+        onClick={() => setShowTransfer(true)}
+        className="w-full flex items-center justify-center space-x-2 py-3 px-4 rounded-full bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 font-semibold text-sm transition-all active:scale-95"
+      >
+        <QrCode size={16} />
+        <span>Transfer Arrest</span>
+      </button>
+      <SessionTransferModal isOpen={showTransfer} onClose={() => setShowTransfer(false)} />
+    </>
+  );
+};
+
+
 
 const ActionGridView: React.FC<{
   onShowOtherDrugs: () => void;
