@@ -3923,8 +3923,27 @@ const AppContent: React.FC = () => {
   }, [showNewborn]);
 
   const arrestViewModel = useArrestViewModel();
-  const { appearanceMode, hasRespondedToResearchTerms } = useSettings();
+  const { appearanceMode, hasRespondedToResearchTerms, syncSettingsToFirestore, loadSettingsFromFirestore, researchModeEnabled, askForPatientInfo, userOrganization } = useSettings();
+  const { db, userId, isAnonymous, user } = useFirebase();
   const [showResearchConsent, setShowResearchConsent] = useState(false);
+  const settingsSyncedRef = useRef(false);
+
+  // Sync settings TO Firestore whenever research settings change
+  useEffect(() => {
+    if (!settingsSyncedRef.current) return; // Don't sync on initial load
+    syncSettingsToFirestore(db, userId, isAnonymous);
+  }, [researchModeEnabled, askForPatientInfo, userOrganization, hasRespondedToResearchTerms, db, userId, isAnonymous]);
+
+  // Load settings FROM Firestore on login (non-anonymous)
+  useEffect(() => {
+    if (!isAnonymous && user) {
+      loadSettingsFromFirestore(db, userId).then(() => {
+        settingsSyncedRef.current = true;
+      });
+    } else {
+      settingsSyncedRef.current = true;
+    }
+  }, [isAnonymous, userId, user]);
 
   useEffect(() => {
     const root = window.document.documentElement;
