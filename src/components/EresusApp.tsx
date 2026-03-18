@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, createContext, useContext, useMemo, lazy, Suspense } from 'react';
+import React, { useState, useEffect, useRef, createContext, useContext, useMemo, lazy, Suspense, useCallback } from 'react';
 import { initializeApp, FirebaseApp } from 'firebase/app';
 import { 
   getFirestore, 
@@ -12,29 +12,34 @@ import {
   onSnapshot,
   Timestamp,
   getDocs,
-  where
+  where,
+  getDoc,
+  updateDoc,
+  FieldValue,
+  serverTimestamp,
+  orderBy
 } from 'firebase/firestore';
 import { 
   getAuth, 
   Auth, 
-  signInAnonymously, 
+  signInAnonymously as fbSignInAnonymously, 
   signInWithCustomToken, 
   onAuthStateChanged,
   User
 } from 'firebase/auth';
 import { 
   Heart, 
-  Book, // Replaced BookClosed
+  Book,
   Settings, 
   RotateCw,
   Square,
   Undo, 
   Clipboard, 
-  Activity, // Replaced WavePulse
+  Activity,
   Zap, 
   Syringe, 
   Pill, 
-  AirVent, // Replaced Lungs
+  AirVent,
   Gauge, 
   HeartPulse, 
   XSquare, 
@@ -51,8 +56,15 @@ import {
   Minus,
   Moon,
   Sun,
-  Laptop
+  Laptop,
+  QrCode,
+  Check,
+  Pencil,
+  User as UserIcon,
+  ExternalLink,
+  BarChart3,
 } from 'lucide-react';
+import { QRCodeSVG } from 'qrcode.react';
 import NewbornLifeSupport from './NewbornLifeSupport';
 
 //============================================================================
