@@ -1333,7 +1333,153 @@ ${[...events].sort((a, b) => a.timestamp - b.timestamp).map(e => `[${TimeFormatt
     setLastRhythmNonShockable(false);
     setAirwayAdjunct(null);
     setRoscTime(null);
+    // v1.2 research reset
+    setPatientAgeStr('');
+    setPatientGenderStr('');
+    setInitialRhythm(null);
+    setShowPatientInfoPrompt(false);
     localStorage.removeItem(ARREST_SESSION_KEY);
+  };
+
+  // v1.2: Offline Log Sweeper
+  const syncOfflineLogs = async () => {
+    if (!researchModeEnabled) return;
+    try {
+      const logsCollectionPath = `/artifacts/${appId}/users/${userId}/logs`;
+      const q = query(collection(db, logsCollectionPath), where("isSynced", "==", false));
+      const snapshot = await getDocs(q);
+      for (const logDoc of snapshot.docs) {
+        const data = logDoc.data();
+        try {
+          const researchData: any = {
+            startTime: data.startTime,
+            totalDuration: data.totalDuration,
+            finalOutcome: data.finalOutcome,
+            shockCount: data.shockCount ?? 0,
+            adrenalineCount: data.adrenalineCount ?? 0,
+            amiodaroneCount: data.amiodaroneCount ?? 0,
+            patientAge: data.patientAge || 'Unknown',
+            patientGender: data.patientGender || 'Unknown',
+            initialRhythm: data.initialRhythm || 'Unknown',
+            organization: data.organization || 'Unknown',
+            uid: userId,
+            timestamp: serverTimestamp(),
+          };
+          if (data.roscTime != null) researchData.roscTime = data.roscTime;
+          
+          await setDoc(doc(db, 'arrestLogs', logDoc.id), researchData);
+          
+          // Upload events
+          const eventsPath = `${logsCollectionPath}/${logDoc.id}/events`;
+          const eventsSnap = await getDocs(collection(db, eventsPath));
+          for (const eventDoc of eventsSnap.docs) {
+            const eventData = eventDoc.data();
+            await addDoc(collection(db, `arrestLogs/${logDoc.id}/events`), eventData);
+          }
+          
+          await updateDoc(doc(db, logsCollectionPath, logDoc.id), { isSynced: true });
+        } catch (e) {
+          console.error("Error syncing log:", logDoc.id, e);
+        }
+      }
+    } catch (e) {
+      console.error("Error sweeping offline logs:", e);
+    }
+  };
+
+  // Run sweep on mount
+  useEffect(() => {
+    syncOfflineLogs();
+  }, []);
+
+  // v1.2: QR Session Transfer
+  const generateTransferState = () => {
+    return {
+      arrestState, masterTime, cprTime, timeOffset, events,
+      shockCount, adrenalineCount, amiodaroneCount, lidocaineCount,
+      airwayPlaced, antiarrhythmicGiven, reversibleCauses, postROSCTasks,
+      postMortemTasks, patientAgeCategory, uiState,
+      hideAdrenalinePrompt, hideAmiodaronePrompt, lastRhythmNonShockable,
+      airwayAdjunct, roscTime, isTimerPaused,
+      startTime: startTimeRef.current?.toISOString() ?? null,
+      cprCycleStartTime: cprCycleStartTimeRef.current,
+      lastAdrenalineTime: lastAdrenalineTimeRef.current,
+      shockCountForAmiodarone1: shockCountForAmiodarone1Ref.current,
+      initialRhythm, patientAgeStr, patientGenderStr,
+    };
+  };
+
+  const hostSessionTransfer = async (): Promise<string | null> => {
+    try {
+      const state = generateTransferState();
+      const transferId = String(Math.floor(100000 + Math.random() * 900000));
+      await setDoc(doc(db, 'transfers', transferId), {
+        stateData: JSON.stringify(state),
+        createdAt: serverTimestamp(),
+      });
+      return transferId;
+    } catch (e) {
+      console.error("Error hosting session transfer:", e);
+      return null;
+    }
+  };
+
+  const receiveSessionTransfer = async (transferId: string): Promise<boolean> => {
+    try {
+      const transferDoc = await getDoc(doc(db, 'transfers', transferId));
+      if (!transferDoc.exists()) return false;
+      
+      const data = transferDoc.data();
+      const state = JSON.parse(data.stateData);
+      
+      // Apply state
+      setArrestState(state.arrestState);
+      setMasterTime(state.masterTime);
+      setCprTime(state.cprTime);
+      setTimeOffset(state.timeOffset);
+      setEvents(state.events);
+      setShockCount(state.shockCount);
+      setAdrenalineCount(state.adrenalineCount);
+      setAmiodaroneCount(state.amiodaroneCount);
+      setLidocaineCount(state.lidocaineCount);
+      setAirwayPlaced(state.airwayPlaced);
+      setAntiarrhythmicGiven(state.antiarrhythmicGiven);
+      setReversibleCauses(state.reversibleCauses);
+      setPostROSCTasks(state.postROSCTasks);
+      setPostMortemTasks(state.postMortemTasks);
+      setPatientAgeCategory(state.patientAgeCategory);
+      setUiState(state.uiState);
+      setHideAdrenalinePrompt(state.hideAdrenalinePrompt ?? false);
+      setHideAmiodaronePrompt(state.hideAmiodaronePrompt ?? false);
+      setLastRhythmNonShockable(state.lastRhythmNonShockable ?? false);
+      setAirwayAdjunct(state.airwayAdjunct ?? null);
+      setRoscTime(state.roscTime ?? null);
+      setIsTimerPaused(state.isTimerPaused ?? false);
+      setInitialRhythm(state.initialRhythm ?? null);
+      setPatientAgeStr(state.patientAgeStr ?? '');
+      setPatientGenderStr(state.patientGenderStr ?? '');
+      
+      if (state.startTime) startTimeRef.current = new Date(state.startTime);
+      cprCycleStartTimeRef.current = state.cprCycleStartTime ?? 0;
+      lastAdrenalineTimeRef.current = state.lastAdrenalineTime ?? null;
+      shockCountForAmiodarone1Ref.current = state.shockCountForAmiodarone1 ?? null;
+      
+      logEvent("Session Transferred from another device", EventType.Status);
+      setUndoHistory([]);
+      
+      // Delete the transfer doc
+      await deleteDoc(doc(db, 'transfers', transferId));
+      
+      // Start timer if needed
+      if ((state.arrestState === ArrestState.Active || state.arrestState === ArrestState.Rosc) && !state.isTimerPaused) {
+        startTimer();
+      }
+      
+      return true;
+    } catch (e) {
+      console.error("Error receiving session transfer:", e);
+      return false;
+    }
   };
 
   return {
@@ -1344,6 +1490,9 @@ ${[...events].sort((a, b) => a.timestamp - b.timestamp).map(e => `[${TimeFormatt
     postMortemTasks, patientAgeCategory, isTimerPaused,
     hideAdrenalinePrompt, hideAmiodaronePrompt, roscTime, airwayAdjunct,
     startTime: startTimeRef.current,
+    // v1.2 research
+    patientAgeStr, setPatientAgeStr, patientGenderStr, setPatientGenderStr,
+    initialRhythm, showPatientInfoPrompt, setShowPatientInfoPrompt,
     
     // Computed
     totalArrestTime, canUndo, isAdrenalineAvailable, isAmiodaroneAvailable,
@@ -1361,6 +1510,8 @@ ${[...events].sort((a, b) => a.timestamp - b.timestamp).map(e => `[${TimeFormatt
     toggleChecklistItemCompletion, setHypothermiaStatus, setPatientAgeCategory,
     performReset, undo, copySummaryToClipboard, pauseArrest, resumeArrest,
     setHideAdrenalinePrompt, setHideAmiodaronePrompt,
+    // v1.2 transfer
+    hostSessionTransfer, receiveSessionTransfer, generateTransferState,
   };
 };
 
