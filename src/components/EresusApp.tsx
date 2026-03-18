@@ -657,7 +657,7 @@ const ARREST_SESSION_KEY = 'eresus_arrest_session';
 
 const useArrestViewModel = () => {
   const { db, userId } = useFirebase();
-  const { cprCycleDuration, adrenalineInterval, showDosagePrompts } = useSettings();
+  const { cprCycleDuration, adrenalineInterval, showDosagePrompts, researchModeEnabled, askForPatientInfo, userOrganization } = useSettings();
 
   // --- Restore saved session ---
   const savedSession = useRef<any>(null);
