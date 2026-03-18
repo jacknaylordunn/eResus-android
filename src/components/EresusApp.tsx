@@ -29,6 +29,11 @@ import {
   signInWithEmailAndPassword,
   signOut,
   sendPasswordResetEmail,
+  signInWithPopup,
+  GoogleAuthProvider,
+  OAuthProvider,
+  linkWithCredential,
+  EmailAuthProvider,
   User
 } from 'firebase/auth';
 import { 
