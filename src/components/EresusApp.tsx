@@ -3792,6 +3792,19 @@ const SettingsView: React.FC = () => {
             ))}
           </div>
         </div>
+        
+        {/* --- Developer Info --- */}
+        <div className="text-center py-4 space-y-1">
+          <p className="text-xs text-gray-400 dark:text-gray-500">eResus v1.2</p>
+          <a 
+            href="https://tech.aegismedicalsolutions.co.uk" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="text-xs text-gray-400 dark:text-gray-500 hover:text-blue-500 dark:hover:text-blue-400 transition-colors"
+          >
+            Developed by Aegis Medical Solutions Ltd
+          </a>
+        </div>
       </div>
       
       {/* Auth Modal */}
