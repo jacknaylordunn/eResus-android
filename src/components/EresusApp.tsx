@@ -659,6 +659,9 @@ const FirebaseProvider: React.FC<React.PropsWithChildren<{}>> = ({ children }) =
       const db = getFirestore(app);
       const auth = getAuth(app);
       
+      // Ensure auth persists across browser sessions (users stay logged in)
+      setPersistence(auth, browserLocalPersistence).catch(console.error);
+      
       // Listen for auth state changes FIRST (per best practice)
       const unsubscribe = onAuthStateChanged(auth, async (user) => {
         if (user) {
