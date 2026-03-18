@@ -273,6 +273,40 @@ const useAppSettings = () => {
   const [hasRespondedToResearchTerms, setHasRespondedToResearchTerms] = useAppStorage('hasRespondedToResearchTerms', false);
   const [askForPatientInfo, setAskForPatientInfo] = useAppStorage('askForPatientInfo', false);
   const [userOrganization, setUserOrganization] = useAppStorage('userOrganization', '');
+  const [_settingsSyncedFrom, _setSettingsSyncedFrom] = useAppStorage('settingsSyncedFromUid', '');
+
+  // Sync research settings TO Firestore when they change (if authenticated)
+  const syncSettingsToFirestore = useCallback((db: Firestore, userId: string, isAnonymous: boolean) => {
+    if (isAnonymous) return;
+    try {
+      const settingsDocPath = `/artifacts/${appId}/users/${userId}/settings/research`;
+      setDoc(doc(db, settingsDocPath), {
+        researchModeEnabled,
+        askForPatientInfo,
+        userOrganization,
+        hasRespondedToResearchTerms,
+        updatedAt: serverTimestamp(),
+      }, { merge: true }).catch(console.error);
+    } catch { /* non-critical */ }
+  }, [researchModeEnabled, askForPatientInfo, userOrganization, hasRespondedToResearchTerms]);
+
+  // Load research settings FROM Firestore on login
+  const loadSettingsFromFirestore = useCallback(async (db: Firestore, userId: string) => {
+    try {
+      const settingsDocPath = `/artifacts/${appId}/users/${userId}/settings/research`;
+      const settingsDoc = await getDoc(doc(db, settingsDocPath));
+      if (settingsDoc.exists()) {
+        const data = settingsDoc.data();
+        if (data.researchModeEnabled !== undefined) setResearchModeEnabled(data.researchModeEnabled);
+        if (data.askForPatientInfo !== undefined) setAskForPatientInfo(data.askForPatientInfo);
+        if (data.userOrganization) setUserOrganization(data.userOrganization);
+        if (data.hasRespondedToResearchTerms !== undefined) setHasRespondedToResearchTerms(data.hasRespondedToResearchTerms);
+        _setSettingsSyncedFrom(userId);
+      }
+    } catch (e) {
+      console.error("Error loading settings from Firestore:", e);
+    }
+  }, []);
 
   return {
     cprCycleDuration, setCprCycleDuration,
@@ -284,6 +318,7 @@ const useAppSettings = () => {
     hasRespondedToResearchTerms, setHasRespondedToResearchTerms,
     askForPatientInfo, setAskForPatientInfo,
     userOrganization, setUserOrganization,
+    syncSettingsToFirestore, loadSettingsFromFirestore,
   };
 };
 type AppSettingsContextType = ReturnType<typeof useAppSettings>;
