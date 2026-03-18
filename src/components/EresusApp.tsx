@@ -3624,6 +3624,8 @@ const AppContent: React.FC = () => {
         {/* Modals */}
         {pdfToShow && <PDFView pdf={pdfToShow} onClose={() => setPdfToShow(null)} />}
         <InstallInstructionsModal isOpen={showInstallModal} onClose={handleCloseInstallModal} />
+        <ResearchConsentView isOpen={showResearchConsent} onClose={() => setShowResearchConsent(false)} />
+        <PatientInfoPromptView isOpen={arrestViewModel.showPatientInfoPrompt} onClose={() => arrestViewModel.setShowPatientInfoPrompt(false)} />
       </div>
     </ArrestContext.Provider>
   );
