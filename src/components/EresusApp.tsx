@@ -1806,7 +1806,7 @@ const SessionTransferModal: React.FC<{ isOpen: boolean; onClose: () => void }> =
   );
 };
 
-// v1.2: Edit Log Patient Info Modal
+// v1.2: Edit Log Patient Info Modal (initial rhythm is read-only / auto-captured)
 const EditLogPatientInfoModal: React.FC<{
   isOpen: boolean;
   onClose: () => void;
@@ -1818,7 +1818,6 @@ const EditLogPatientInfoModal: React.FC<{
   const { db, userId } = useFirebase();
   const [age, setAge] = useState(currentAge || '');
   const [gender, setGender] = useState(currentGender || '');
-  const [rhythm, setRhythm] = useState(currentRhythm || '');
 
   const handleSave = async () => {
     try {
@@ -1826,7 +1825,6 @@ const EditLogPatientInfoModal: React.FC<{
       await updateDoc(doc(db, logPath), {
         patientAge: age || null,
         patientGender: gender || null,
-        initialRhythm: rhythm || null,
       });
       onClose();
     } catch (e) {
@@ -1852,11 +1850,14 @@ const EditLogPatientInfoModal: React.FC<{
             <option value="Other">Other</option>
           </select>
         </div>
-        <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Initial Rhythm</label>
-          <input type="text" value={rhythm} onChange={(e) => setRhythm(e.target.value)} placeholder="e.g. VF, Asystole"
-            className="w-full p-3 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg text-gray-900 dark:text-white" />
-        </div>
+        {currentRhythm && (
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Initial Rhythm</label>
+            <p className="p-3 bg-gray-100 dark:bg-gray-700 rounded-lg text-gray-600 dark:text-gray-400 text-sm italic">
+              {currentRhythm} <span className="text-xs">(auto-captured)</span>
+            </p>
+          </div>
+        )}
         <ActionButton title="Save" backgroundColor="bg-blue-600" foregroundColor="text-white" onClick={handleSave} />
       </div>
     </Modal>
