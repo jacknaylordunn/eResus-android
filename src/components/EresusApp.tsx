@@ -1607,7 +1607,8 @@ const ResearchConsentView: React.FC<{ isOpen: boolean; onClose: () => void }> = 
     // Fetch organizations from Firebase
     const fetchOrgs = async () => {
       try {
-        const apps = require('firebase/app').getApps();
+        const { getApps } = await import('firebase/app');
+        const apps = getApps();
         if (apps.length === 0) return;
         const db = getFirestore(apps[0]);
         const snapshot = await getDocs(collection(db, 'organizations'));
