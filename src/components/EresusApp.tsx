@@ -257,6 +257,11 @@ const useAppSettings = () => {
   const [metronomeBPM, setMetronomeBPM] = useAppStorage('metronomeBPM', 110);
   const [appearanceMode, setAppearanceMode] = useAppStorage<AppearanceMode>('appearanceMode', AppearanceMode.System);
   const [showDosagePrompts, setShowDosagePrompts] = useAppStorage('showDosagePrompts', false);
+  // Research & Data Collection (v1.2)
+  const [researchModeEnabled, setResearchModeEnabled] = useAppStorage('researchModeEnabled', true);
+  const [hasRespondedToResearchTerms, setHasRespondedToResearchTerms] = useAppStorage('hasRespondedToResearchTerms', false);
+  const [askForPatientInfo, setAskForPatientInfo] = useAppStorage('askForPatientInfo', false);
+  const [userOrganization, setUserOrganization] = useAppStorage('userOrganization', '');
 
   return {
     cprCycleDuration, setCprCycleDuration,
@@ -264,6 +269,10 @@ const useAppSettings = () => {
     metronomeBPM, setMetronomeBPM,
     appearanceMode, setAppearanceMode,
     showDosagePrompts, setShowDosagePrompts,
+    researchModeEnabled, setResearchModeEnabled,
+    hasRespondedToResearchTerms, setHasRespondedToResearchTerms,
+    askForPatientInfo, setAskForPatientInfo,
+    userOrganization, setUserOrganization,
   };
 };
 type AppSettingsContextType = ReturnType<typeof useAppSettings>;
