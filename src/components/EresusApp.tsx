@@ -1051,6 +1051,10 @@ const useArrestViewModel = () => {
 
   const logRhythm = (rhythm: string, isShockable: boolean) => {
     saveUndoState();
+    // Capture the first rhythm analyzed (v1.2)
+    if (initialRhythm === null) {
+      setInitialRhythm(rhythm);
+    }
     logEvent(`Rhythm is ${rhythm}`, EventType.Rhythm);
     setLastRhythmNonShockable(!isShockable);
     if (!isShockable) setHideAdrenalinePrompt(false);
