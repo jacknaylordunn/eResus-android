@@ -29,6 +29,11 @@ import {
   signInWithEmailAndPassword,
   signOut,
   sendPasswordResetEmail,
+  signInWithPopup,
+  GoogleAuthProvider,
+  OAuthProvider,
+  linkWithCredential,
+  EmailAuthProvider,
   User
 } from 'firebase/auth';
 import { 
@@ -603,6 +608,45 @@ interface FirebaseContextType {
 const FirebaseContext = createContext<FirebaseContextType | null>(null);
 const useFirebase = () => useContext(FirebaseContext)!;
 
+const googleProvider = new GoogleAuthProvider();
+googleProvider.setCustomParameters({ client_id: '118352301751-uqa88f4vsfkquo2o0rairbo61s38kl1j.apps.googleusercontent.com' });
+
+const appleProvider = new OAuthProvider('apple.com');
+appleProvider.addScope('email');
+appleProvider.addScope('name');
+
+// Migrate anonymous logs to new authenticated user
+const migrateAnonymousLogs = async (db: Firestore, oldUserId: string, newUserId: string) => {
+  if (oldUserId === newUserId) return;
+  try {
+    const oldLogsPath = `/artifacts/${appId}/users/${oldUserId}/logs`;
+    const newLogsPath = `/artifacts/${appId}/users/${newUserId}/logs`;
+    const oldLogsSnap = await getDocs(collection(db, oldLogsPath));
+    
+    for (const logDoc of oldLogsSnap.docs) {
+      const data = logDoc.data();
+      // Copy log to new user path
+      const newLogRef = doc(db, newLogsPath, logDoc.id);
+      await setDoc(newLogRef, { ...data, userId: newUserId });
+      
+      // Copy events subcollection
+      const oldEventsSnap = await getDocs(collection(db, `${oldLogsPath}/${logDoc.id}/events`));
+      for (const eventDoc of oldEventsSnap.docs) {
+        await setDoc(doc(db, `${newLogsPath}/${logDoc.id}/events`, eventDoc.id), eventDoc.data());
+      }
+      
+      // Delete old log
+      for (const eventDoc of oldEventsSnap.docs) {
+        await deleteDoc(doc(db, `${oldLogsPath}/${logDoc.id}/events`, eventDoc.id));
+      }
+      await deleteDoc(doc(db, oldLogsPath, logDoc.id));
+    }
+    console.log(`Migrated ${oldLogsSnap.size} logs from ${oldUserId} to ${newUserId}`);
+  } catch (e) {
+    console.error("Error migrating logs:", e);
+  }
+};
+
 const FirebaseProvider: React.FC<React.PropsWithChildren<{}>> = ({ children }) => {
   const [services, setServices] = useState<FirebaseContextType | null>(null);
   const [authReady, setAuthReady] = useState(false);
@@ -616,11 +660,11 @@ const FirebaseProvider: React.FC<React.PropsWithChildren<{}>> = ({ children }) =
       // Listen for auth state changes FIRST (per best practice)
       const unsubscribe = onAuthStateChanged(auth, async (user) => {
         if (user) {
-          // User is signed in (anonymous or email)
-          // Migrate old localStorage userId data path if needed
+          // Migrate old localStorage userId data if transitioning from anonymous
           const oldUserId = localStorage.getItem('eresus_user_id');
-          if (oldUserId && oldUserId !== user.uid) {
-            localStorage.setItem('eresus_user_id_migrated_from', oldUserId);
+          if (oldUserId && oldUserId !== user.uid && !user.isAnonymous) {
+            // User just signed in — migrate their anonymous logs
+            migrateAnonymousLogs(db, oldUserId, user.uid);
           }
           localStorage.setItem('eresus_user_id', user.uid);
           
@@ -637,7 +681,6 @@ const FirebaseProvider: React.FC<React.PropsWithChildren<{}>> = ({ children }) =
             // onAuthStateChanged will fire again with the anonymous user
           } catch (e) {
             console.error("Anonymous sign-in failed, falling back to device ID:", e);
-            // Fallback to device-based ID
             const getOrCreateUserId = () => {
               const stored = localStorage.getItem('eresus_user_id');
               if (stored) return stored;
@@ -1067,9 +1110,11 @@ const useArrestViewModel = () => {
     setInitialRhythm(null); // Reset initial rhythm for new arrest
     logEvent(`${priorStartTime ? 'Transitioned to Paediatric ALS' : 'Arrest Started'} at ${new Date().toLocaleTimeString()}`, EventType.Status);
     
-    // Show patient info prompt if research mode or askForPatientInfo is enabled
-    if (!priorStartTime && (researchModeEnabled || askForPatientInfo)) {
-      setShowPatientInfoPrompt(true);
+    // Show patient info prompt: mandatory for research users, optional setting for others
+    if (!priorStartTime) {
+      if (researchModeEnabled || askForPatientInfo) {
+        setShowPatientInfoPrompt(true);
+      }
     }
   };
 
@@ -1763,7 +1808,7 @@ const SessionTransferModal: React.FC<{ isOpen: boolean; onClose: () => void }> =
   );
 };
 
-// v1.2: Edit Log Patient Info Modal
+// v1.2: Edit Log Patient Info Modal (initial rhythm is read-only / auto-captured)
 const EditLogPatientInfoModal: React.FC<{
   isOpen: boolean;
   onClose: () => void;
@@ -1775,7 +1820,6 @@ const EditLogPatientInfoModal: React.FC<{
   const { db, userId } = useFirebase();
   const [age, setAge] = useState(currentAge || '');
   const [gender, setGender] = useState(currentGender || '');
-  const [rhythm, setRhythm] = useState(currentRhythm || '');
 
   const handleSave = async () => {
     try {
@@ -1783,7 +1827,6 @@ const EditLogPatientInfoModal: React.FC<{
       await updateDoc(doc(db, logPath), {
         patientAge: age || null,
         patientGender: gender || null,
-        initialRhythm: rhythm || null,
       });
       onClose();
     } catch (e) {
@@ -1809,11 +1852,14 @@ const EditLogPatientInfoModal: React.FC<{
             <option value="Other">Other</option>
           </select>
         </div>
-        <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Initial Rhythm</label>
-          <input type="text" value={rhythm} onChange={(e) => setRhythm(e.target.value)} placeholder="e.g. VF, Asystole"
-            className="w-full p-3 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg text-gray-900 dark:text-white" />
-        </div>
+        {currentRhythm && (
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Initial Rhythm</label>
+            <p className="p-3 bg-gray-100 dark:bg-gray-700 rounded-lg text-gray-600 dark:text-gray-400 text-sm italic">
+              {currentRhythm} <span className="text-xs">(auto-captured)</span>
+            </p>
+          </div>
+        )}
         <ActionButton title="Save" backgroundColor="bg-blue-600" foregroundColor="text-white" onClick={handleSave} />
       </div>
     </Modal>
@@ -3199,7 +3245,7 @@ const LogbookView: React.FC = () => {
             onContextMenu={(e) => { e.preventDefault(); setLongPressLog(longPressLog === log.id ? null : log.id); }}
           >
             <div className="flex justify-between items-start">
-              <button onClick={() => openLog(log)} className="flex-grow text-left">
+              <div onClick={() => openLog(log)} className="flex-grow text-left cursor-pointer">
                 <h3 className="font-semibold text-gray-900 dark:text-white">{log.startTime.toDate().toLocaleDateString()}</h3>
                 <p className="text-sm text-gray-600 dark:text-gray-400">
                   {log.startTime.toDate().toLocaleTimeString()}
@@ -3211,14 +3257,14 @@ const LogbookView: React.FC = () => {
                 {hasPatientInfo(log) ? (
                   <p className="text-xs text-blue-600 dark:text-blue-400 font-semibold mt-1">{getPatientInfoText(log)}</p>
                 ) : showAddInfoPill ? (
-                  <button
+                  <span
                     onClick={(e) => { e.stopPropagation(); setEditingLog(log); }}
-                    className="mt-2 px-3 py-1 text-xs font-semibold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 rounded-full"
+                    className="inline-block mt-2 px-3 py-1 text-xs font-semibold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 rounded-full cursor-pointer"
                   >
                     + Add Patient Info
-                  </button>
+                  </span>
                 ) : null}
-              </button>
+              </div>
               <div className="flex flex-col items-end space-y-1 flex-shrink-0 ml-2">
                 <button onClick={() => setEditingLog(log)} className="p-1.5 text-gray-400 hover:text-blue-500">
                   <Pencil size={16} />
@@ -3317,7 +3363,13 @@ const AuthView: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isOpen, 
         await signInWithEmailAndPassword(auth, email, password);
         onClose();
       } else if (mode === 'register') {
-        await createUserWithEmailAndPassword(auth, email, password);
+        // If anonymous, link the account instead of creating new
+        if (user && user.isAnonymous) {
+          const credential = EmailAuthProvider.credential(email, password);
+          await linkWithCredential(user, credential);
+        } else {
+          await createUserWithEmailAndPassword(auth, email, password);
+        }
         onClose();
       } else if (mode === 'reset') {
         await sendPasswordResetEmail(auth, email);
@@ -3329,8 +3381,37 @@ const AuthView: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isOpen, 
         : e?.code === 'auth/email-already-in-use' ? 'An account with this email already exists.'
         : e?.code === 'auth/weak-password' ? 'Password must be at least 6 characters.'
         : e?.code === 'auth/invalid-email' ? 'Please enter a valid email address.'
+        : e?.code === 'auth/credential-already-in-use' ? 'This credential is already associated with another account. Try signing in instead.'
         : e?.message || 'An error occurred.';
       setError(msg);
+    }
+    setLoading(false);
+  };
+
+  const handleGoogleSignIn = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      await signInWithPopup(auth, googleProvider);
+      onClose();
+    } catch (e: any) {
+      if (e?.code !== 'auth/popup-closed-by-user') {
+        setError(e?.message || 'Google sign-in failed.');
+      }
+    }
+    setLoading(false);
+  };
+
+  const handleAppleSignIn = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      await signInWithPopup(auth, appleProvider);
+      onClose();
+    } catch (e: any) {
+      if (e?.code !== 'auth/popup-closed-by-user') {
+        setError(e?.message || 'Apple sign-in failed.');
+      }
     }
     setLoading(false);
   };
@@ -3346,7 +3427,7 @@ const AuthView: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isOpen, 
 
   if (!isOpen) return null;
 
-  // If already signed in with email, show account info
+  // If already signed in with email/provider, show account info
   if (user && !isAnonymous) {
     return (
       <Modal isOpen={isOpen} onClose={onClose} title="Account">
@@ -3355,8 +3436,8 @@ const AuthView: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isOpen, 
             <UserIcon size={32} className="text-blue-600 dark:text-blue-400" />
           </div>
           <p className="text-gray-700 dark:text-gray-300">Signed in as</p>
-          <p className="font-semibold text-gray-900 dark:text-white">{user.email}</p>
-          <p className="text-xs text-gray-500 dark:text-gray-400">Your arrest logs are synced with this account.</p>
+          <p className="font-semibold text-gray-900 dark:text-white">{user.email || user.displayName || 'Connected Account'}</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400">Your arrest logs are synced across all your signed-in devices.</p>
           <ActionButton title="Sign Out" backgroundColor="bg-red-600" foregroundColor="text-white" onClick={handleSignOut} />
         </div>
       </Modal>
@@ -3377,8 +3458,44 @@ const AuthView: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isOpen, 
             <p className="text-sm text-gray-500 dark:text-gray-400 text-center">
               {mode === 'reset' 
                 ? 'Enter your email to receive a password reset link.'
-                : 'Sign in to sync your arrest logs across devices and contribute to research.'}
+                : 'Sign in to sync your arrest logs across devices.'}
             </p>
+            
+            {/* Social sign-in buttons */}
+            {mode !== 'reset' && (
+              <div className="space-y-2">
+                <button
+                  onClick={handleGoogleSignIn}
+                  disabled={loading}
+                  className="w-full flex items-center justify-center space-x-3 py-3 px-4 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-xl font-medium text-gray-800 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-600 active:scale-95 transition-all disabled:opacity-50"
+                >
+                  <svg className="w-5 h-5" viewBox="0 0 24 24">
+                    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"/>
+                    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                  </svg>
+                  <span>Continue with Google</span>
+                </button>
+                <button
+                  onClick={handleAppleSignIn}
+                  disabled={loading}
+                  className="w-full flex items-center justify-center space-x-3 py-3 px-4 bg-black text-white rounded-xl font-medium hover:bg-gray-900 active:scale-95 transition-all disabled:opacity-50"
+                >
+                  <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.48-3.24 0-1.44.62-2.2.44-3.06-.4C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/>
+                  </svg>
+                  <span>Continue with Apple</span>
+                </button>
+                
+                <div className="flex items-center space-x-3 py-2">
+                  <div className="flex-1 h-px bg-gray-300 dark:bg-gray-600" />
+                  <span className="text-xs text-gray-500 dark:text-gray-400">or</span>
+                  <div className="flex-1 h-px bg-gray-300 dark:bg-gray-600" />
+                </div>
+              </div>
+            )}
+            
             <input
               type="email"
               value={email}
@@ -3397,7 +3514,7 @@ const AuthView: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isOpen, 
             )}
             {error && <p className="text-sm text-red-500 text-center">{error}</p>}
             <ActionButton
-              title={loading ? 'Please wait...' : mode === 'reset' ? 'Send Reset Link' : mode === 'register' ? 'Create Account' : 'Sign In'}
+              title={loading ? 'Please wait...' : mode === 'reset' ? 'Send Reset Link' : mode === 'register' ? 'Create Account' : 'Sign In with Email'}
               backgroundColor="bg-blue-600"
               foregroundColor="text-white"
               onClick={handleSubmit}
@@ -3554,12 +3671,22 @@ const SettingsView: React.FC = () => {
             onChange={setResearchModeEnabled}
             description="When enabled, anonymised arrest data is uploaded to help improve cardiac arrest outcomes research."
           />
-          <SettingToggle
-            label="Ask for Patient Info"
-            enabled={askForPatientInfo}
-            onChange={setAskForPatientInfo}
-            description="Prompt for approximate patient age and gender when starting an arrest."
-          />
+          {researchModeEnabled ? (
+            <div className="space-y-1">
+              <div className="flex justify-between items-center">
+                <span className="text-gray-800 dark:text-gray-200">Ask for Patient Info</span>
+                <span className="text-xs font-medium text-green-600 dark:text-green-400 bg-green-100 dark:bg-green-900/30 px-2 py-0.5 rounded-full">Required</span>
+              </div>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Mandatory when Research Mode is enabled.</p>
+            </div>
+          ) : (
+            <SettingToggle
+              label="Ask for Patient Info"
+              enabled={askForPatientInfo}
+              onChange={setAskForPatientInfo}
+              description="Prompt for approximate patient age and gender when starting an arrest."
+            />
+          )}
           <div className="space-y-2">
             <span className="text-gray-800 dark:text-gray-200 text-sm">Organisation</span>
             <select
