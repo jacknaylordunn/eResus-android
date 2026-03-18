@@ -25,6 +25,10 @@ import {
   signInAnonymously as fbSignInAnonymously, 
   signInWithCustomToken, 
   onAuthStateChanged,
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  signOut,
+  sendPasswordResetEmail,
   User
 } from 'firebase/auth';
 import { 
