@@ -1418,8 +1418,8 @@ ${[...events].sort((a, b) => a.timestamp - b.timestamp).map(e => `[${TimeFormatt
     localStorage.removeItem(ARREST_SESSION_KEY);
   };
 
-  // v1.2: Offline Log Sweeper
-  const syncOfflineLogs = async () => {
+  // v1.2: Offline Log Sweeper — runs on every app open/focus
+  const syncOfflineLogs = useCallback(async () => {
     if (!researchModeEnabled) return;
     try {
       const logsCollectionPath = `/artifacts/${appId}/users/${userId}/logs`;
@@ -1459,15 +1459,27 @@ ${[...events].sort((a, b) => a.timestamp - b.timestamp).map(e => `[${TimeFormatt
           console.error("Error syncing log:", logDoc.id, e);
         }
       }
+      if (snapshot.size > 0) console.log(`Synced ${snapshot.size} offline logs`);
     } catch (e) {
       console.error("Error sweeping offline logs:", e);
     }
-  };
+  }, [db, userId, researchModeEnabled]);
 
-  // Run sweep on mount
+  // Run sweep on mount AND when app regains focus (e.g. switching tabs/reopening)
   useEffect(() => {
     syncOfflineLogs();
-  }, []);
+    
+    const handleFocus = () => {
+      syncOfflineLogs();
+    };
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') syncOfflineLogs();
+    });
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [syncOfflineLogs]);
 
   // v1.2: QR Session Transfer
   const generateTransferState = () => {
@@ -1828,6 +1840,22 @@ const EditLogPatientInfoModal: React.FC<{
         patientAge: age || null,
         patientGender: gender || null,
       });
+      
+      // Also update research collection if the log was synced there
+      try {
+        const researchDocRef = doc(db, 'arrestLogs', logId);
+        const researchDoc = await getDoc(researchDocRef);
+        if (researchDoc.exists()) {
+          await updateDoc(researchDocRef, {
+            patientAge: age || 'Unknown',
+            patientGender: gender || 'Unknown',
+          });
+        }
+      } catch (e) {
+        // Research doc may not exist — non-critical
+        console.warn("Could not update research log:", e);
+      }
+      
       onClose();
     } catch (e) {
       console.error("Error updating log:", e);
@@ -3218,13 +3246,13 @@ const LogbookView: React.FC = () => {
     }
   };
 
-  const hasPatientInfo = (log: any) => !!(log.patientAge || log.patientGender);
-  const showAddInfoPill = (askForPatientInfo || researchModeEnabled);
+  const hasPatientInfo = (log: any) => !!(log.patientAge && log.patientAge !== 'Unknown') || !!(log.patientGender && log.patientGender !== 'Unknown');
+  const showAddInfoPill = true; // Always show option to add missing patient info
 
   const getPatientInfoText = (log: any) => {
     const parts: string[] = [];
-    if (log.patientAge) parts.push(`${log.patientAge} y/o`);
-    if (log.patientGender) parts.push(log.patientGender);
+    if (log.patientAge && log.patientAge !== 'Unknown') parts.push(`${log.patientAge} y/o`);
+    if (log.patientGender && log.patientGender !== 'Unknown') parts.push(log.patientGender);
     return parts.join(' ');
   };
 
