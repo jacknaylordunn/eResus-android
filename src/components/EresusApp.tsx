@@ -3671,12 +3671,22 @@ const SettingsView: React.FC = () => {
             onChange={setResearchModeEnabled}
             description="When enabled, anonymised arrest data is uploaded to help improve cardiac arrest outcomes research."
           />
-          <SettingToggle
-            label="Ask for Patient Info"
-            enabled={askForPatientInfo}
-            onChange={setAskForPatientInfo}
-            description="Prompt for approximate patient age and gender when starting an arrest."
-          />
+          {researchModeEnabled ? (
+            <div className="space-y-1">
+              <div className="flex justify-between items-center">
+                <span className="text-gray-800 dark:text-gray-200">Ask for Patient Info</span>
+                <span className="text-xs font-medium text-green-600 dark:text-green-400 bg-green-100 dark:bg-green-900/30 px-2 py-0.5 rounded-full">Required</span>
+              </div>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Mandatory when Research Mode is enabled.</p>
+            </div>
+          ) : (
+            <SettingToggle
+              label="Ask for Patient Info"
+              enabled={askForPatientInfo}
+              onChange={setAskForPatientInfo}
+              description="Prompt for approximate patient age and gender when starting an arrest."
+            />
+          )}
           <div className="space-y-2">
             <span className="text-gray-800 dark:text-gray-200 text-sm">Organisation</span>
             <select
