@@ -2631,6 +2631,7 @@ const EndedView: React.FC<{
       />
       <AlgorithmGridView onShowPdf={onShowPdf} />
       <EventLogView events={events} />
+      <TransferArrestPill />
     </div>
   );
 };
