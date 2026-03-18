@@ -2570,6 +2570,9 @@ const ActiveArrestContentView: React.FC<{
       />
       
       <EventLogView events={events} />
+      
+      {/* v1.2: Transfer Arrest pill at bottom of event log */}
+      <TransferArrestPill />
     </div>
   );
 };
