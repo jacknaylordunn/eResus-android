@@ -3246,8 +3246,8 @@ const LogbookView: React.FC = () => {
     }
   };
 
-  const hasPatientInfo = (log: any) => !!(log.patientAge || log.patientGender);
-  const showAddInfoPill = (askForPatientInfo || researchModeEnabled);
+  const hasPatientInfo = (log: any) => !!(log.patientAge && log.patientAge !== 'Unknown') || !!(log.patientGender && log.patientGender !== 'Unknown');
+  const showAddInfoPill = true; // Always show option to add missing patient info
 
   const getPatientInfoText = (log: any) => {
     const parts: string[] = [];
