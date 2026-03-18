@@ -586,7 +586,7 @@ const DosageCalculator = {
 };
 
 //============================================================================
-// FIREBASE CONTEXT
+// FIREBASE CONTEXT & AUTH
 //============================================================================
 interface FirebaseContextType {
   app: FirebaseApp;
@@ -594,12 +594,14 @@ interface FirebaseContextType {
   auth: Auth;
   user: User | null;
   userId: string;
+  isAnonymous: boolean;
 }
 const FirebaseContext = createContext<FirebaseContextType | null>(null);
 const useFirebase = () => useContext(FirebaseContext)!;
 
 const FirebaseProvider: React.FC<React.PropsWithChildren<{}>> = ({ children }) => {
   const [services, setServices] = useState<FirebaseContextType | null>(null);
+  const [authReady, setAuthReady] = useState(false);
 
   useEffect(() => {
     try {
@@ -607,30 +609,56 @@ const FirebaseProvider: React.FC<React.PropsWithChildren<{}>> = ({ children }) =
       const db = getFirestore(app);
       const auth = getAuth(app);
       
-      // Generate a userId from localStorage or create new one
-      const getOrCreateUserId = () => {
-        const stored = localStorage.getItem('eresus_user_id');
-        if (stored) return stored;
-        const newId = crypto.randomUUID();
-        localStorage.setItem('eresus_user_id', newId);
-        return newId;
-      };
-      
-      const userId = getOrCreateUserId();
-      
-      setServices({
-        app,
-        db,
-        auth,
-        user: null,
-        userId: userId,
+      // Listen for auth state changes FIRST (per best practice)
+      const unsubscribe = onAuthStateChanged(auth, async (user) => {
+        if (user) {
+          // User is signed in (anonymous or email)
+          // Migrate old localStorage userId data path if needed
+          const oldUserId = localStorage.getItem('eresus_user_id');
+          if (oldUserId && oldUserId !== user.uid) {
+            localStorage.setItem('eresus_user_id_migrated_from', oldUserId);
+          }
+          localStorage.setItem('eresus_user_id', user.uid);
+          
+          setServices({
+            app, db, auth,
+            user,
+            userId: user.uid,
+            isAnonymous: user.isAnonymous,
+          });
+        } else {
+          // No user — sign in anonymously as fallback
+          try {
+            await fbSignInAnonymously(auth);
+            // onAuthStateChanged will fire again with the anonymous user
+          } catch (e) {
+            console.error("Anonymous sign-in failed, falling back to device ID:", e);
+            // Fallback to device-based ID
+            const getOrCreateUserId = () => {
+              const stored = localStorage.getItem('eresus_user_id');
+              if (stored) return stored;
+              const newId = crypto.randomUUID();
+              localStorage.setItem('eresus_user_id', newId);
+              return newId;
+            };
+            setServices({
+              app, db, auth,
+              user: null,
+              userId: getOrCreateUserId(),
+              isAnonymous: true,
+            });
+          }
+        }
+        setAuthReady(true);
       });
+      
+      return () => unsubscribe();
     } catch (e) {
       console.error("Failed to initialize Firebase", e);
     }
   }, []);
 
-  if (!services) {
+  if (!services || !authReady) {
     return (
       <div className="flex items-center justify-center h-screen bg-gray-100 dark:bg-gray-900">
         <div className="flex flex-col items-center">
