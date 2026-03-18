@@ -2612,6 +2612,7 @@ const RoscView: React.FC<{
       
       <AlgorithmGridView onShowPdf={onShowPdf} />
       <EventLogView events={events} />
+      <TransferArrestPill />
     </div>
   );
 };
