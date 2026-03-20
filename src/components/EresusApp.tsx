@@ -1394,6 +1394,7 @@ const useArrestViewModel = () => {
     const firstIVIO = extractFirstEventTime(events, ['vascular access'], startTimeRef.current);
     const firstAirway = extractFirstEventTime(events, ['advanced airway'], startTimeRef.current);
     const firstAdrenaline = extractFirstEventTime(events, ['adrenaline'], startTimeRef.current);
+    const lastAdrenaline = extractLastEventTime(events, ['adrenaline'], startTimeRef.current);
     
     const roscText = roscTime !== null ? (startTimeRef.current 
       ? `ROSC at: ${(() => { const d = new Date(startTimeRef.current.getTime() + roscTime * 1000); return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; })()}`
@@ -1416,6 +1417,7 @@ Initial Rhythm: ${initialRhythm || 'None'}
 First IV / IO: ${firstIVIO || 'None'}
 First Airway: ${firstAirway || 'None'}
 First Adrenaline: ${firstAdrenaline || 'None'}
+Last Adrenaline: ${lastAdrenaline || 'None'}
 
 Shocks: ${shockCount}  |  Adrenaline: ${adrenalineCount}  |  Amiodarone: ${amiodaroneCount}  |  Lidocaine: ${Math.max(lidocaineCount, dynamicLidocaineCount)}
 
