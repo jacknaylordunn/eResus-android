@@ -3973,7 +3973,7 @@ const LogbookView: React.FC = () => {
                 className="flex-1 py-3 rounded-xl bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white font-bold flex items-center justify-center space-x-2 active:scale-95 transition-transform"
               >
                 <Clipboard size={18} />
-                <span>Copy Summary</span>
+                <span>Copy</span>
               </button>
               <ActionButton title="Close" backgroundColor="bg-blue-600" foregroundColor="text-white" onClick={() => setSelectedLog(null)} />
             </div>
