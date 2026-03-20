@@ -822,6 +822,22 @@ const extractFirstEventTime = (events: Event[], searchPatterns: string[], startT
   return null;
 };
 
+const extractLastEventTime = (events: Event[], searchPatterns: string[], startTime: Date | null): string | null => {
+  const sorted = [...events].sort((a, b) => b.timestamp - a.timestamp);
+  for (const event of sorted) {
+    for (const pattern of searchPatterns) {
+      if (event.message.toLowerCase().includes(pattern.toLowerCase())) {
+        if (startTime) {
+          const eventDate = new Date(startTime.getTime() + event.timestamp * 1000);
+          return `${String(eventDate.getHours()).padStart(2,'0')}:${String(eventDate.getMinutes()).padStart(2,'0')}`;
+        }
+        return TimeFormatter.format(event.timestamp);
+      }
+    }
+  }
+  return null;
+};
+
 const useArrestViewModel = () => {
   const { db, userId } = useFirebase();
   const { cprCycleDuration, adrenalineInterval, showDosagePrompts, researchModeEnabled, askForPatientInfo, userOrganization } = useSettings();
@@ -898,15 +914,9 @@ const useArrestViewModel = () => {
     return reversibleCauses.find(item => item.name === "Hypothermia")?.hypothermiaStatus !== HypothermiaStatus.Severe;
   }, [reversibleCauses]);
 
-  const isAmiodaroneAvailable = useMemo(() => {
-    const isEligibleShockCount = (shockCount >= 3 && amiodaroneCount === 0) || (shockCount >= 5 && amiodaroneCount === 1);
-    return isEligibleShockCount && antiarrhythmicGiven !== AntiarrhythmicDrug.Lidocaine && isAdrenalineAvailable;
-  }, [shockCount, amiodaroneCount, antiarrhythmicGiven, isAdrenalineAvailable]);
-
-  const isLidocaineAvailable = useMemo(() => {
-    const isEligibleShockCount = (shockCount >= 3 && lidocaineCount === 0) || (shockCount >= 5 && lidocaineCount === 1);
-    return isEligibleShockCount && antiarrhythmicGiven !== AntiarrhythmicDrug.Amiodarone;
-  }, [shockCount, lidocaineCount, antiarrhythmicGiven]);
+  // Amiodarone and Lidocaine are now always available (can be pressed anytime during arrest)
+  const isAmiodaroneAvailable = true;
+  const isLidocaineAvailable = true;
 
   const timeUntilAdrenaline = useMemo(() => {
     const lastAdrenalineTime = lastAdrenalineTimeRef.current;
@@ -1384,6 +1394,7 @@ const useArrestViewModel = () => {
     const firstIVIO = extractFirstEventTime(events, ['vascular access'], startTimeRef.current);
     const firstAirway = extractFirstEventTime(events, ['advanced airway'], startTimeRef.current);
     const firstAdrenaline = extractFirstEventTime(events, ['adrenaline'], startTimeRef.current);
+    const lastAdrenaline = extractLastEventTime(events, ['adrenaline'], startTimeRef.current);
     
     const roscText = roscTime !== null ? (startTimeRef.current 
       ? `ROSC at: ${(() => { const d = new Date(startTimeRef.current.getTime() + roscTime * 1000); return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; })()}`
@@ -1406,6 +1417,7 @@ Initial Rhythm: ${initialRhythm || 'None'}
 First IV / IO: ${firstIVIO || 'None'}
 First Airway: ${firstAirway || 'None'}
 First Adrenaline: ${firstAdrenaline || 'None'}
+Last Adrenaline: ${lastAdrenaline || 'None'}
 
 Shocks: ${shockCount}  |  Adrenaline: ${adrenalineCount}  |  Amiodarone: ${amiodaroneCount}  |  Lidocaine: ${Math.max(lidocaineCount, dynamicLidocaineCount)}
 
@@ -2333,6 +2345,7 @@ const SummaryView: React.FC<{ isOpen: boolean; onClose: () => void; }> = ({ isOp
   const firstIVIO = extractFirstEventTime(events, ['vascular access'], startTime);
   const firstAirway = extractFirstEventTime(events, ['advanced airway'], startTime);
   const firstAdrenaline = extractFirstEventTime(events, ['adrenaline'], startTime);
+  const lastAdrenaline = extractLastEventTime(events, ['adrenaline'], startTime);
   
   const demoText = (patientAgeStr || patientGenderStr) 
     ? `${patientAgeStr ? `${patientAgeStr} y/o` : ''} ${patientGenderStr || ''}`.trim()
@@ -2390,6 +2403,10 @@ const SummaryView: React.FC<{ isOpen: boolean; onClose: () => void; }> = ({ isOp
             <div className="flex justify-between">
               <span className="text-gray-700 dark:text-gray-300">First Adrenaline:</span>
               <span className="font-bold text-gray-900 dark:text-white">{firstAdrenaline || 'None'}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-700 dark:text-gray-300">Last Adrenaline:</span>
+              <span className="font-bold text-gray-900 dark:text-white">{lastAdrenaline || 'None'}</span>
             </div>
           </div>
         </div>
