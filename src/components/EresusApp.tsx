@@ -2127,10 +2127,12 @@ const InstallInstructionsModal: React.FC<{ isOpen: boolean; onClose: () => void 
   return (
     <div className="fixed inset-0 bg-gray-900/95 z-50 flex items-center justify-center p-4">
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-sm p-6 space-y-5 max-h-[90vh] overflow-y-auto">
-        <div className="flex flex-col items-center space-y-3">
-          <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-red-500 to-red-700 flex items-center justify-center shadow-lg">
-            <HeartPulse size={40} className="text-white" />
-          </div>
+         <div className="flex flex-col items-center space-y-3">
+          <img 
+            src="https://145955222.fs1.hubspotusercontent-eu1.net/hubfs/145955222/eResus/eResus.svg" 
+            alt="eResus" 
+            className="w-20 h-20 rounded-2xl shadow-lg"
+          />
           <h2 className="text-xl font-bold text-center text-gray-900 dark:text-white">Install eResus</h2>
           <p className="text-sm text-center text-gray-500 dark:text-gray-400">
             Add eResus to your home screen for instant access, offline support, and a full-screen experience.
