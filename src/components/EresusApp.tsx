@@ -1416,7 +1416,7 @@ CRITICAL INTERVENTIONS (REAL-WORLD TIME)
 Initial Rhythm: ${initialRhythm || 'None'}
 First IV / IO: ${firstIVIO || 'None'}
 First Airway: ${firstAirway || 'None'}
-First Adrenaline: ${firstAdrenaline || 'None'}
+
 Last Adrenaline: ${lastAdrenaline || 'None'}
 
 Shocks: ${shockCount}  |  Adrenaline: ${adrenalineCount}  |  Amiodarone: ${amiodaroneCount}  |  Lidocaine: ${Math.max(lidocaineCount, dynamicLidocaineCount)}
