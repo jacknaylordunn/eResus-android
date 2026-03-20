@@ -934,8 +934,8 @@ const useArrestViewModel = () => {
   }, [amiodaroneCount, shockCount, hideAmiodaronePrompt]);
   
   const shouldShowAmiodaroneFirstDosePrompt = useMemo(() => {
-      return isAmiodaroneAvailable && amiodaroneCount === 0 && !hideAmiodaronePrompt;
-  }, [isAmiodaroneAvailable, amiodaroneCount, hideAmiodaronePrompt]);
+      return shockCount >= 3 && amiodaroneCount === 0 && !hideAmiodaronePrompt;
+  }, [shockCount, amiodaroneCount, hideAmiodaronePrompt]);
 
   const shouldShowAdrenalinePrompt = useMemo(() => {
     if (!isAdrenalineAvailable || hideAdrenalinePrompt) return false;
