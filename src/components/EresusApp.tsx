@@ -80,6 +80,7 @@ import {
 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import NewbornLifeSupport from './NewbornLifeSupport';
+import eresusLogo from '../assets/eresus-logo.svg';
 
 //============================================================================
 // GLOBAL FIREBASE CONFIG & APP ID
