@@ -1636,7 +1636,7 @@ ${[...events].sort((a, b) => a.timestamp - b.timestamp).map(e => `[${TimeFormatt
   const hostSessionTransfer = async (): Promise<string | null> => {
     try {
       const state = generateTransferState();
-      const transferId = String(Math.floor(100000 + Math.random() * 900000));
+      const transferId = crypto.randomUUID();
       await setDoc(doc(db, 'transfers', transferId), {
         stateData: JSON.stringify(state),
         createdAt: serverTimestamp(),
