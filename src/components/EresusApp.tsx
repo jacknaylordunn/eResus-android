@@ -1652,15 +1652,36 @@ ${[...events].sort((a, b) => a.timestamp - b.timestamp).map(e => `[${TimeFormatt
 
   const receiveSessionTransfer = async (transferId: string): Promise<{ success: boolean; error?: string }> => {
     try {
-      const transferDoc = await getDoc(doc(db, 'transfers', transferId));
-      if (!transferDoc.exists()) return { success: false, error: 'Transfer not found. Check the code and try again.' };
-      
+      const normalizedTransferId = transferId.replace(/\D/g, '').slice(0, 6);
+      if (normalizedTransferId.length !== 6) {
+        return { success: false, error: 'Enter a valid 6-digit transfer code.' };
+      }
+
+      const transferRef = doc(db, 'transfers', normalizedTransferId);
+      const transferDoc = await getDoc(transferRef);
+      if (!transferDoc.exists()) {
+        return { success: false, error: 'Transfer not found. Check the code and try again.' };
+      }
+
       const data = transferDoc.data();
+      const expiresAt = data.expiresAt instanceof Timestamp
+        ? data.expiresAt.toDate()
+        : data.expiresAt?.toDate?.() ?? null;
+
+      if (expiresAt && expiresAt.getTime() <= Date.now()) {
+        try {
+          await deleteDoc(transferRef);
+        } catch {
+          // Ignore cleanup failures for expired transfers
+        }
+        return { success: false, error: 'This transfer code has expired. Generate a new code and try again.' };
+      }
+
       const state = JSON.parse(data.stateData);
-      
+
       // Stop any existing timer first
       stopTimer();
-      
+
       // Set the start time ref FIRST so the timer can use it
       if (state.startTime) {
         startTimeRef.current = new Date(state.startTime);
@@ -1668,19 +1689,19 @@ ${[...events].sort((a, b) => a.timestamp - b.timestamp).map(e => `[${TimeFormatt
       cprCycleStartTimeRef.current = state.cprCycleStartTime ?? 0;
       lastAdrenalineTimeRef.current = state.lastAdrenalineTime ?? null;
       shockCountForAmiodarone1Ref.current = state.shockCountForAmiodarone1 ?? null;
-      
+
       // Calculate the current real elapsed time from original start
-      const realElapsed = startTimeRef.current 
-        ? (Date.now() - startTimeRef.current.getTime()) / 1000 
+      const realElapsed = startTimeRef.current
+        ? (Date.now() - startTimeRef.current.getTime()) / 1000
         : state.masterTime;
-      
+
       // Add a transfer event with the correct timestamp
       const transferEvent: Event = {
         timestamp: realElapsed,
-        message: "Session Transferred from another device",
+        message: 'Session Transferred from another device',
         type: EventType.Status,
       };
-      
+
       // Set ALL state at once
       setArrestState(state.arrestState);
       setMasterTime(realElapsed);
@@ -1712,24 +1733,26 @@ ${[...events].sort((a, b) => a.timestamp - b.timestamp).map(e => `[${TimeFormatt
       setVodChecklist(state.vodChecklist ?? AppConstants.vodChecklistTemplate());
       setVodConfirmed(state.vodConfirmed ?? false);
       setUndoHistory([]);
-      
+
       // Delete the transfer document
       try {
-        await deleteDoc(doc(db, 'transfers', transferId));
-      } catch { /* non-critical */ }
-      
+        await deleteDoc(transferRef);
+      } catch {
+        /* non-critical */
+      }
+
       // Start timer if arrest is active and not paused
       if ((state.arrestState === ArrestState.Active || state.arrestState === ArrestState.Rosc) && !state.isTimerPaused) {
         // Use setTimeout to ensure state has settled before starting timer
         setTimeout(() => startTimer(), 50);
       }
-      
+
       HapticManager.notification('success');
       return { success: true };
     } catch (e: any) {
-      console.error("Error receiving session transfer:", e);
+      console.error('Error receiving session transfer:', e);
       if (e?.code === 'permission-denied') {
-        return { success: false, error: 'Permission denied. Please ensure you are signed in and try again.' };
+        return { success: false, error: 'Transfer access is blocked by Firestore rules. Update the transfers read rule and try again.' };
       }
       return { success: false, error: 'Transfer not found. Check the code and try again.' };
     }
