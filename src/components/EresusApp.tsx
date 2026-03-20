@@ -2345,6 +2345,7 @@ const SummaryView: React.FC<{ isOpen: boolean; onClose: () => void; }> = ({ isOp
   const firstIVIO = extractFirstEventTime(events, ['vascular access'], startTime);
   const firstAirway = extractFirstEventTime(events, ['advanced airway'], startTime);
   const firstAdrenaline = extractFirstEventTime(events, ['adrenaline'], startTime);
+  const lastAdrenaline = extractLastEventTime(events, ['adrenaline'], startTime);
   
   const demoText = (patientAgeStr || patientGenderStr) 
     ? `${patientAgeStr ? `${patientAgeStr} y/o` : ''} ${patientGenderStr || ''}`.trim()
@@ -2402,6 +2403,10 @@ const SummaryView: React.FC<{ isOpen: boolean; onClose: () => void; }> = ({ isOp
             <div className="flex justify-between">
               <span className="text-gray-700 dark:text-gray-300">First Adrenaline:</span>
               <span className="font-bold text-gray-900 dark:text-white">{firstAdrenaline || 'None'}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-700 dark:text-gray-300">Last Adrenaline:</span>
+              <span className="font-bold text-gray-900 dark:text-white">{lastAdrenaline || 'None'}</span>
             </div>
           </div>
         </div>
