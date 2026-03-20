@@ -762,11 +762,12 @@ const FirebaseProvider: React.FC<React.PropsWithChildren<{}>> = ({ children }) =
 
   if (!services || !authReady) {
     return (
-      <div className="flex items-center justify-center h-screen bg-gray-100 dark:bg-gray-900">
-        <div className="flex flex-col items-center">
-          <HeartPulse className="w-16 h-16 text-red-500 animate-pulse" />
-          <p className="text-lg text-gray-700 dark:text-gray-300 mt-4">Connecting to services...</p>
-        </div>
+      <div className="flex items-center justify-center h-screen bg-background">
+        <img 
+          src="https://145955222.fs1.hubspotusercontent-eu1.net/hubfs/145955222/eResus/eResus.svg" 
+          alt="eResus" 
+          className="w-24 h-24 rounded-2xl animate-pulse"
+        />
       </div>
     );
   }
@@ -2126,10 +2127,12 @@ const InstallInstructionsModal: React.FC<{ isOpen: boolean; onClose: () => void 
   return (
     <div className="fixed inset-0 bg-gray-900/95 z-50 flex items-center justify-center p-4">
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-sm p-6 space-y-5 max-h-[90vh] overflow-y-auto">
-        <div className="flex flex-col items-center space-y-3">
-          <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-red-500 to-red-700 flex items-center justify-center shadow-lg">
-            <HeartPulse size={40} className="text-white" />
-          </div>
+         <div className="flex flex-col items-center space-y-3">
+          <img 
+            src="https://145955222.fs1.hubspotusercontent-eu1.net/hubfs/145955222/eResus/eResus.svg" 
+            alt="eResus" 
+            className="w-20 h-20 rounded-2xl shadow-lg"
+          />
           <h2 className="text-xl font-bold text-center text-gray-900 dark:text-white">Install eResus</h2>
           <p className="text-sm text-center text-gray-500 dark:text-gray-400">
             Add eResus to your home screen for instant access, offline support, and a full-screen experience.
@@ -2177,9 +2180,11 @@ const AccountPromptView: React.FC<{ isOpen: boolean; onClose: () => void }> = ({
     <>
       <div className="fixed inset-0 bg-gray-900/95 z-50 flex items-center justify-center p-4">
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-sm p-6 space-y-5 max-h-[90vh] overflow-y-auto">
-          <div className="w-16 h-16 mx-auto rounded-full bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center">
-            <Shield size={32} className="text-blue-600 dark:text-blue-400" />
-          </div>
+          <img 
+            src="https://145955222.fs1.hubspotusercontent-eu1.net/hubfs/145955222/eResus/eResus.svg" 
+            alt="eResus" 
+            className="w-16 h-16 mx-auto rounded-2xl shadow-lg"
+          />
           <h2 className="text-xl font-bold text-center text-gray-900 dark:text-white">Create an Account</h2>
           <p className="text-sm text-center text-gray-600 dark:text-gray-400">
             Sign up to unlock extra features and keep your data safe.
