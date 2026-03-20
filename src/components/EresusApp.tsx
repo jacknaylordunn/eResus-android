@@ -1650,10 +1650,10 @@ ${[...events].sort((a, b) => a.timestamp - b.timestamp).map(e => `[${TimeFormatt
     }
   };
 
-  const receiveSessionTransfer = async (transferId: string): Promise<boolean> => {
+  const receiveSessionTransfer = async (transferId: string): Promise<{ success: boolean; error?: string }> => {
     try {
       const transferDoc = await getDoc(doc(db, 'transfers', transferId));
-      if (!transferDoc.exists()) return false;
+      if (!transferDoc.exists()) return { success: false, error: 'Transfer not found. Check the code and try again.' };
       
       const data = transferDoc.data();
       const state = JSON.parse(data.stateData);
@@ -1725,10 +1725,13 @@ ${[...events].sort((a, b) => a.timestamp - b.timestamp).map(e => `[${TimeFormatt
       }
       
       HapticManager.notification('success');
-      return true;
-    } catch (e) {
+      return { success: true };
+    } catch (e: any) {
       console.error("Error receiving session transfer:", e);
-      return false;
+      if (e?.code === 'permission-denied') {
+        return { success: false, error: 'Permission denied. Please ensure you are signed in and try again.' };
+      }
+      return { success: false, error: 'Transfer not found. Check the code and try again.' };
     }
   };
 
@@ -1943,12 +1946,12 @@ const SessionTransferModal: React.FC<{ isOpen: boolean; onClose: () => void }> =
     if (receiveCode.length !== 6) return;
     setIsReceiving(true);
     setReceiveError('');
-    const success = await receiveSessionTransfer(receiveCode);
+    const result = await receiveSessionTransfer(receiveCode);
     setIsReceiving(false);
-    if (success) {
+    if (result.success) {
       onClose();
     } else {
-      setReceiveError('Transfer not found. Check the code and try again.');
+      setReceiveError(result.error || 'Transfer not found. Check the code and try again.');
     }
   };
 
@@ -3134,13 +3137,13 @@ const PendingView: React.FC<{
     if (receiveCode.length !== 6) return;
     setIsReceiving(true);
     setReceiveError('');
-    const success = await receiveSessionTransfer(receiveCode);
+    const result = await receiveSessionTransfer(receiveCode);
     setIsReceiving(false);
-    if (success) {
+    if (result.success) {
       setShowReceiveTransfer(false);
       setReceiveCode('');
     } else {
-      setReceiveError('Transfer not found. Check the code and try again.');
+      setReceiveError(result.error || 'Transfer not found. Check the code and try again.');
     }
   };
 
