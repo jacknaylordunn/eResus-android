@@ -2180,9 +2180,11 @@ const AccountPromptView: React.FC<{ isOpen: boolean; onClose: () => void }> = ({
     <>
       <div className="fixed inset-0 bg-gray-900/95 z-50 flex items-center justify-center p-4">
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-sm p-6 space-y-5 max-h-[90vh] overflow-y-auto">
-          <div className="w-16 h-16 mx-auto rounded-full bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center">
-            <Shield size={32} className="text-blue-600 dark:text-blue-400" />
-          </div>
+          <img 
+            src="https://145955222.fs1.hubspotusercontent-eu1.net/hubfs/145955222/eResus/eResus.svg" 
+            alt="eResus" 
+            className="w-16 h-16 mx-auto rounded-2xl shadow-lg"
+          />
           <h2 className="text-xl font-bold text-center text-gray-900 dark:text-white">Create an Account</h2>
           <p className="text-sm text-center text-gray-600 dark:text-gray-400">
             Sign up to unlock extra features and keep your data safe.
