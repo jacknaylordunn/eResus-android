@@ -822,6 +822,22 @@ const extractFirstEventTime = (events: Event[], searchPatterns: string[], startT
   return null;
 };
 
+const extractLastEventTime = (events: Event[], searchPatterns: string[], startTime: Date | null): string | null => {
+  const sorted = [...events].sort((a, b) => b.timestamp - a.timestamp);
+  for (const event of sorted) {
+    for (const pattern of searchPatterns) {
+      if (event.message.toLowerCase().includes(pattern.toLowerCase())) {
+        if (startTime) {
+          const eventDate = new Date(startTime.getTime() + event.timestamp * 1000);
+          return `${String(eventDate.getHours()).padStart(2,'0')}:${String(eventDate.getMinutes()).padStart(2,'0')}`;
+        }
+        return TimeFormatter.format(event.timestamp);
+      }
+    }
+  }
+  return null;
+};
+
 const useArrestViewModel = () => {
   const { db, userId } = useFirebase();
   const { cprCycleDuration, adrenalineInterval, showDosagePrompts, researchModeEnabled, askForPatientInfo, userOrganization } = useSettings();
