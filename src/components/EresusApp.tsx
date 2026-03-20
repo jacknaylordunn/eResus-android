@@ -3939,10 +3939,6 @@ const LogbookView: React.FC = () => {
                 <span className="font-bold text-gray-900 dark:text-white">{extractFirstEventTime(selectedLogEvents, ['advanced airway'], selectedLog.startTime?.toDate()) || 'None'}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-600 dark:text-gray-400">First Adrenaline:</span>
-                <span className="font-bold text-gray-900 dark:text-white">{extractFirstEventTime(selectedLogEvents, ['adrenaline'], selectedLog.startTime?.toDate()) || 'None'}</span>
-              </div>
-              <div className="flex justify-between">
                 <span className="text-gray-600 dark:text-gray-400">Last Adrenaline:</span>
                 <span className="font-bold text-gray-900 dark:text-white">{extractLastEventTime(selectedLogEvents, ['adrenaline'], selectedLog.startTime?.toDate()) || 'None'}</span>
               </div>
