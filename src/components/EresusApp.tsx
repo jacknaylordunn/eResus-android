@@ -80,7 +80,6 @@ import {
 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import NewbornLifeSupport from './NewbornLifeSupport';
-import eresusLogo from '../assets/eresus-logo.svg';
 
 //============================================================================
 // GLOBAL FIREBASE CONFIG & APP ID
@@ -763,13 +762,10 @@ const FirebaseProvider: React.FC<React.PropsWithChildren<{}>> = ({ children }) =
 
   if (!services || !authReady) {
     return (
-      <div className="flex items-center justify-center h-screen bg-background">
-        <div className="flex flex-col items-center gap-6">
-          <img src={eresusLogo} alt="eResus" className="w-28 h-28 animate-pulse" />
-          <div className="flex items-center gap-2">
-            <div className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
-            <p className="text-sm text-muted-foreground font-medium">Loading</p>
-          </div>
+      <div className="flex items-center justify-center h-screen bg-gray-100 dark:bg-gray-900">
+        <div className="flex flex-col items-center">
+          <HeartPulse className="w-16 h-16 text-red-500 animate-pulse" />
+          <p className="text-lg text-gray-700 dark:text-gray-300 mt-4">Connecting to services...</p>
         </div>
       </div>
     );
