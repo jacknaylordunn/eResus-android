@@ -3975,7 +3975,7 @@ const LogbookView: React.FC = () => {
                 <Clipboard size={18} />
                 <span>Copy</span>
               </button>
-              <ActionButton title="Close" backgroundColor="bg-blue-600" foregroundColor="text-white" onClick={() => setSelectedLog(null)} />
+              <div className="flex-1"><ActionButton title="Close" backgroundColor="bg-blue-600" foregroundColor="text-white" onClick={() => setSelectedLog(null)} /></div>
             </div>
           </div>
         </Modal>
