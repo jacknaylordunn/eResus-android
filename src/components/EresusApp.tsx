@@ -3959,7 +3959,24 @@ const LogbookView: React.FC = () => {
               ))}
             </div>
             
-            <ActionButton title="Close" backgroundColor="bg-blue-600" foregroundColor="text-white" onClick={() => setSelectedLog(null)} />
+            <div className="flex space-x-2">
+              <button
+                onClick={() => {
+                  const startText = selectedLog.startTime ? selectedLog.startTime.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Unknown';
+                  const dateText = selectedLog.startTime ? selectedLog.startTime.toDate().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : 'Unknown';
+                  const patientInfo = hasPatientInfo(selectedLog) ? getPatientInfoText(selectedLog) : '';
+                  const evtsSorted = selectedLogEvents.sort((a, b) => a.timestamp - b.timestamp);
+                  const text = `eResus — Arrest Summary\nDate: ${dateText}\n${patientInfo ? `Patient: ${patientInfo}\n` : ''}Start Time: ${startText}\nInitial Rhythm: ${selectedLog.initialRhythm || 'None'}\n${selectedLog.torTime != null ? `TOR: ${selectedLog.startTime ? new Date(selectedLog.startTime.toDate().getTime() + selectedLog.torTime * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : TimeFormatter.format(selectedLog.torTime)}\n` : ''}${selectedLog.vodTime != null ? `VOD: ${selectedLog.startTime ? new Date(selectedLog.startTime.toDate().getTime() + selectedLog.vodTime * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : TimeFormatter.format(selectedLog.vodTime)}\n` : ''}Total Duration: ${TimeFormatter.format(selectedLog.totalDuration)}\n\nShocks: ${selectedLog.shockCount ?? 0}  |  Adrenaline: ${selectedLog.adrenalineCount ?? 0}  |  Amiodarone: ${selectedLog.amiodaroneCount ?? 0}  |  Lidocaine: ${Math.max(selectedLog.lidocaineCount ?? 0, getDynamicLidocaineCount(selectedLogEvents))}\n\n--- Event Log ---\n${evtsSorted.map(e => `[${TimeFormatter.format(e.timestamp)}] ${e.message}`).join('\n')}`;
+                  navigator.clipboard.writeText(text.trim()).catch(console.error);
+                  if (navigator.vibrate) navigator.vibrate([10, 50, 10]);
+                }}
+                className="flex-1 py-3 rounded-xl bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white font-bold flex items-center justify-center space-x-2 active:scale-95 transition-transform"
+              >
+                <Clipboard size={18} />
+                <span>Copy Summary</span>
+              </button>
+              <ActionButton title="Close" backgroundColor="bg-blue-600" foregroundColor="text-white" onClick={() => setSelectedLog(null)} />
+            </div>
           </div>
         </Modal>
       )}
