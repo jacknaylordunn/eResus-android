@@ -762,11 +762,12 @@ const FirebaseProvider: React.FC<React.PropsWithChildren<{}>> = ({ children }) =
 
   if (!services || !authReady) {
     return (
-      <div className="flex items-center justify-center h-screen bg-gray-100 dark:bg-gray-900">
-        <div className="flex flex-col items-center">
-          <HeartPulse className="w-16 h-16 text-red-500 animate-pulse" />
-          <p className="text-lg text-gray-700 dark:text-gray-300 mt-4">Connecting to services...</p>
-        </div>
+      <div className="flex items-center justify-center h-screen bg-background">
+        <img 
+          src="https://145955222.fs1.hubspotusercontent-eu1.net/hubfs/145955222/eResus/eResus.svg" 
+          alt="eResus" 
+          className="w-24 h-24 rounded-2xl animate-pulse"
+        />
       </div>
     );
   }
