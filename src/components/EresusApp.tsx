@@ -1657,11 +1657,35 @@ ${[...events].sort((a, b) => a.timestamp - b.timestamp).map(e => `[${TimeFormatt
       const data = transferDoc.data();
       const state = JSON.parse(data.stateData);
       
+      // Stop any existing timer first
+      stopTimer();
+      
+      // Set the start time ref FIRST so the timer can use it
+      if (state.startTime) {
+        startTimeRef.current = new Date(state.startTime);
+      }
+      cprCycleStartTimeRef.current = state.cprCycleStartTime ?? 0;
+      lastAdrenalineTimeRef.current = state.lastAdrenalineTime ?? null;
+      shockCountForAmiodarone1Ref.current = state.shockCountForAmiodarone1 ?? null;
+      
+      // Calculate the current real elapsed time from original start
+      const realElapsed = startTimeRef.current 
+        ? (Date.now() - startTimeRef.current.getTime()) / 1000 
+        : state.masterTime;
+      
+      // Add a transfer event with the correct timestamp
+      const transferEvent: Event = {
+        timestamp: realElapsed,
+        message: "Session Transferred from another device",
+        type: EventType.Status,
+      };
+      
+      // Set ALL state at once
       setArrestState(state.arrestState);
-      setMasterTime(state.masterTime);
+      setMasterTime(realElapsed);
       setCprTime(state.cprTime);
       setTimeOffset(state.timeOffset);
-      setEvents(state.events);
+      setEvents([...state.events, transferEvent]);
       setShockCount(state.shockCount);
       setAdrenalineCount(state.adrenalineCount);
       setAmiodaroneCount(state.amiodaroneCount);
@@ -1686,21 +1710,20 @@ ${[...events].sort((a, b) => a.timestamp - b.timestamp).map(e => `[${TimeFormatt
       setVodTime(state.vodTime ?? null);
       setVodChecklist(state.vodChecklist ?? AppConstants.vodChecklistTemplate());
       setVodConfirmed(state.vodConfirmed ?? false);
-      
-      if (state.startTime) startTimeRef.current = new Date(state.startTime);
-      cprCycleStartTimeRef.current = state.cprCycleStartTime ?? 0;
-      lastAdrenalineTimeRef.current = state.lastAdrenalineTime ?? null;
-      shockCountForAmiodarone1Ref.current = state.shockCountForAmiodarone1 ?? null;
-      
-      logEvent("Session Transferred from another device", EventType.Status);
       setUndoHistory([]);
       
-      await deleteDoc(doc(db, 'transfers', transferId));
+      // Delete the transfer document
+      try {
+        await deleteDoc(doc(db, 'transfers', transferId));
+      } catch { /* non-critical */ }
       
+      // Start timer if arrest is active and not paused
       if ((state.arrestState === ArrestState.Active || state.arrestState === ArrestState.Rosc) && !state.isTimerPaused) {
-        startTimer();
+        // Use setTimeout to ensure state has settled before starting timer
+        setTimeout(() => startTimer(), 50);
       }
       
+      HapticManager.notification('success');
       return true;
     } catch (e) {
       console.error("Error receiving session transfer:", e);
@@ -2974,7 +2997,25 @@ const PendingView: React.FC<{
   onShowPdf: (pdf: PDFIdentifiable) => void;
   onShowNewborn: () => void;
 }> = ({ onShowPdf, onShowNewborn }) => {
-  const { startArrest, showRecoveryPrompt, resumeRecoveredSession, discardRecoveredSession } = useArrest();
+  const { startArrest, showRecoveryPrompt, resumeRecoveredSession, discardRecoveredSession, receiveSessionTransfer } = useArrest();
+  const [showReceiveTransfer, setShowReceiveTransfer] = useState(false);
+  const [receiveCode, setReceiveCode] = useState('');
+  const [isReceiving, setIsReceiving] = useState(false);
+  const [receiveError, setReceiveError] = useState('');
+
+  const handleReceive = async () => {
+    if (receiveCode.length !== 6) return;
+    setIsReceiving(true);
+    setReceiveError('');
+    const success = await receiveSessionTransfer(receiveCode);
+    setIsReceiving(false);
+    if (success) {
+      setShowReceiveTransfer(false);
+      setReceiveCode('');
+    } else {
+      setReceiveError('Transfer not found. Check the code and try again.');
+    }
+  };
 
   return (
     <div className="p-4 space-y-8">
@@ -2993,6 +3034,47 @@ const PendingView: React.FC<{
       )}
       <IosAppStoreBanner />
       <ActionButton title="Start Arrest" backgroundColor="bg-red-600" foregroundColor="text-white" height="h-20" fontSize="text-2xl" onClick={startArrest} />
+      
+      {/* Receive Transfer */}
+      {!showReceiveTransfer ? (
+        <ActionButton 
+          title="Receive Transfer" 
+          icon={<QrCode size={18} />} 
+          backgroundColor="bg-blue-600" 
+          foregroundColor="text-white" 
+          height="h-14" 
+          fontSize="text-lg" 
+          onClick={() => setShowReceiveTransfer(true)} 
+        />
+      ) : (
+        <div className="p-4 bg-white dark:bg-gray-800 rounded-xl shadow-lg space-y-4 border border-gray-200 dark:border-gray-700">
+          <h3 className="font-semibold text-center text-gray-900 dark:text-white">Receive Arrest Transfer</h3>
+          <p className="text-sm text-center text-gray-600 dark:text-gray-400">Enter the 6-digit code shown on the sending device:</p>
+          <input 
+            type="text" 
+            value={receiveCode} 
+            onChange={(e) => setReceiveCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+            placeholder="000000" 
+            maxLength={6}
+            className="w-full text-center text-3xl font-mono font-bold p-4 border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-xl text-gray-900 dark:text-white tracking-[0.5em]" 
+          />
+          {receiveError && <p className="text-sm text-red-500 text-center">{receiveError}</p>}
+          <ActionButton 
+            title={isReceiving ? "Receiving..." : "Receive Session"} 
+            backgroundColor="bg-green-600" 
+            foregroundColor="text-white" 
+            onClick={handleReceive} 
+            disabled={receiveCode.length !== 6 || isReceiving} 
+          />
+          <ActionButton 
+            title="Cancel" 
+            backgroundColor="bg-gray-200 dark:bg-gray-700" 
+            foregroundColor="text-gray-700 dark:text-gray-300" 
+            onClick={() => { setShowReceiveTransfer(false); setReceiveCode(''); setReceiveError(''); }} 
+          />
+        </div>
+      )}
+      
       <ActionButton title="Newborn Life Support" backgroundColor="bg-purple-600" foregroundColor="text-white" height="h-16" fontSize="text-lg" onClick={onShowNewborn} />
       <AlgorithmGridView onShowPdf={onShowPdf} />
     </div>
