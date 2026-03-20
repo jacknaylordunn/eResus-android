@@ -4463,6 +4463,7 @@ const AppContent: React.FC = () => {
   const arrestViewModel = useArrestViewModel();
   const { appearanceMode, hasRespondedToResearchTerms, syncSettingsToFirestore, loadSettingsFromFirestore, researchModeEnabled, askForPatientInfo, userOrganization } = useSettings();
   const { db, userId, isAnonymous, user } = useFirebase();
+  const [showAccountPrompt, setShowAccountPrompt] = useState(false);
   const [showResearchConsent, setShowResearchConsent] = useState(false);
   const settingsSyncedRef = useRef(false);
 
