@@ -3035,17 +3035,20 @@ const PendingView: React.FC<{
       <IosAppStoreBanner />
       <ActionButton title="Start Arrest" backgroundColor="bg-red-600" foregroundColor="text-white" height="h-20" fontSize="text-2xl" onClick={startArrest} />
       
-      {/* Receive Transfer */}
+      <ActionButton title="Newborn Life Support" backgroundColor="bg-purple-600" foregroundColor="text-white" height="h-16" fontSize="text-lg" onClick={onShowNewborn} />
+      <AlgorithmGridView onShowPdf={onShowPdf} />
+      
+      {/* Receive Transfer - subtle pill button */}
       {!showReceiveTransfer ? (
-        <ActionButton 
-          title="Receive Transfer" 
-          icon={<QrCode size={18} />} 
-          backgroundColor="bg-blue-600" 
-          foregroundColor="text-white" 
-          height="h-14" 
-          fontSize="text-lg" 
-          onClick={() => setShowReceiveTransfer(true)} 
-        />
+        <div className="flex justify-center pt-2">
+          <button 
+            onClick={() => setShowReceiveTransfer(true)}
+            className="inline-flex items-center gap-2 px-5 py-2 rounded-full text-sm font-medium bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors active:scale-[0.97]"
+          >
+            <QrCode size={14} />
+            Receive Transfer
+          </button>
+        </div>
       ) : (
         <div className="p-4 bg-white dark:bg-gray-800 rounded-xl shadow-lg space-y-4 border border-gray-200 dark:border-gray-700">
           <h3 className="font-semibold text-center text-gray-900 dark:text-white">Receive Arrest Transfer</h3>
@@ -3074,9 +3077,6 @@ const PendingView: React.FC<{
           />
         </div>
       )}
-      
-      <ActionButton title="Newborn Life Support" backgroundColor="bg-purple-600" foregroundColor="text-white" height="h-16" fontSize="text-lg" onClick={onShowNewborn} />
-      <AlgorithmGridView onShowPdf={onShowPdf} />
     </div>
   );
 };
