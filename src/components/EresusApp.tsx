@@ -80,6 +80,7 @@ import {
 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import NewbornLifeSupport from './NewbornLifeSupport';
+import eresusLogo from '../assets/eresus-logo.svg';
 
 //============================================================================
 // GLOBAL FIREBASE CONFIG & APP ID
@@ -764,18 +765,10 @@ const FirebaseProvider: React.FC<React.PropsWithChildren<{}>> = ({ children }) =
     return (
       <div className="flex items-center justify-center h-screen bg-background">
         <div className="flex flex-col items-center gap-6">
-          <div className="relative">
-            <div className="w-20 h-20 bg-gradient-to-br from-red-500 to-red-700 rounded-2xl flex items-center justify-center shadow-lg">
-              <HeartPulse size={44} className="text-white" />
-            </div>
-            <div className="absolute inset-0 w-20 h-20 bg-gradient-to-br from-red-500 to-red-700 rounded-2xl animate-ping opacity-20" />
-          </div>
-          <div className="flex flex-col items-center gap-2">
-            <h1 className="text-2xl font-bold text-foreground tracking-tight">eResus</h1>
-            <div className="flex items-center gap-2">
-              <div className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
-              <p className="text-sm text-muted-foreground font-medium">Loading</p>
-            </div>
+          <img src={eresusLogo} alt="eResus" className="w-28 h-28 animate-pulse" />
+          <div className="flex items-center gap-2">
+            <div className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+            <p className="text-sm text-muted-foreground font-medium">Loading</p>
           </div>
         </div>
       </div>
