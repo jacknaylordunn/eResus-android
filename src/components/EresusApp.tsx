@@ -1725,10 +1725,13 @@ ${[...events].sort((a, b) => a.timestamp - b.timestamp).map(e => `[${TimeFormatt
       }
       
       HapticManager.notification('success');
-      return true;
-    } catch (e) {
+      return { success: true };
+    } catch (e: any) {
       console.error("Error receiving session transfer:", e);
-      return false;
+      if (e?.code === 'permission-denied') {
+        return { success: false, error: 'Permission denied. Please ensure you are signed in and try again.' };
+      }
+      return { success: false, error: 'Transfer not found. Check the code and try again.' };
     }
   };
 
