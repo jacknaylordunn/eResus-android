@@ -4503,11 +4503,23 @@ const AppContent: React.FC = () => {
     }
   }, []);
   
+  const hasSeenAccountPrompt = localStorage.getItem('eResusSeenAccountPrompt');
+
   useEffect(() => {
-    if (!showInstallModal && !hasRespondedToResearchTerms) {
+    if (!showInstallModal && !hasSeenAccountPrompt && isAnonymous) {
+      setShowAccountPrompt(true);
+    } else if (!showInstallModal && !hasRespondedToResearchTerms) {
       setShowResearchConsent(true);
     }
-  }, [showInstallModal, hasRespondedToResearchTerms]);
+  }, [showInstallModal, hasRespondedToResearchTerms, isAnonymous]);
+
+  const handleCloseAccountPrompt = () => {
+    localStorage.setItem('eResusSeenAccountPrompt', 'true');
+    setShowAccountPrompt(false);
+    if (!hasRespondedToResearchTerms) {
+      setShowResearchConsent(true);
+    }
+  };
   
   const handleCloseInstallModal = () => {
     localStorage.setItem('eResusSeenInstallInstructions', 'true');
