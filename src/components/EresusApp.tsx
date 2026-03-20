@@ -1657,11 +1657,35 @@ ${[...events].sort((a, b) => a.timestamp - b.timestamp).map(e => `[${TimeFormatt
       const data = transferDoc.data();
       const state = JSON.parse(data.stateData);
       
+      // Stop any existing timer first
+      stopTimer();
+      
+      // Set the start time ref FIRST so the timer can use it
+      if (state.startTime) {
+        startTimeRef.current = new Date(state.startTime);
+      }
+      cprCycleStartTimeRef.current = state.cprCycleStartTime ?? 0;
+      lastAdrenalineTimeRef.current = state.lastAdrenalineTime ?? null;
+      shockCountForAmiodarone1Ref.current = state.shockCountForAmiodarone1 ?? null;
+      
+      // Calculate the current real elapsed time from original start
+      const realElapsed = startTimeRef.current 
+        ? (Date.now() - startTimeRef.current.getTime()) / 1000 
+        : state.masterTime;
+      
+      // Add a transfer event with the correct timestamp
+      const transferEvent: Event = {
+        timestamp: realElapsed,
+        message: "Session Transferred from another device",
+        type: EventType.Status,
+      };
+      
+      // Set ALL state at once
       setArrestState(state.arrestState);
-      setMasterTime(state.masterTime);
+      setMasterTime(realElapsed);
       setCprTime(state.cprTime);
       setTimeOffset(state.timeOffset);
-      setEvents(state.events);
+      setEvents([...state.events, transferEvent]);
       setShockCount(state.shockCount);
       setAdrenalineCount(state.adrenalineCount);
       setAmiodaroneCount(state.amiodaroneCount);
@@ -1686,21 +1710,20 @@ ${[...events].sort((a, b) => a.timestamp - b.timestamp).map(e => `[${TimeFormatt
       setVodTime(state.vodTime ?? null);
       setVodChecklist(state.vodChecklist ?? AppConstants.vodChecklistTemplate());
       setVodConfirmed(state.vodConfirmed ?? false);
-      
-      if (state.startTime) startTimeRef.current = new Date(state.startTime);
-      cprCycleStartTimeRef.current = state.cprCycleStartTime ?? 0;
-      lastAdrenalineTimeRef.current = state.lastAdrenalineTime ?? null;
-      shockCountForAmiodarone1Ref.current = state.shockCountForAmiodarone1 ?? null;
-      
-      logEvent("Session Transferred from another device", EventType.Status);
       setUndoHistory([]);
       
-      await deleteDoc(doc(db, 'transfers', transferId));
+      // Delete the transfer document
+      try {
+        await deleteDoc(doc(db, 'transfers', transferId));
+      } catch { /* non-critical */ }
       
+      // Start timer if arrest is active and not paused
       if ((state.arrestState === ArrestState.Active || state.arrestState === ArrestState.Rosc) && !state.isTimerPaused) {
-        startTimer();
+        // Use setTimeout to ensure state has settled before starting timer
+        setTimeout(() => startTimer(), 50);
       }
       
+      HapticManager.notification('success');
       return true;
     } catch (e) {
       console.error("Error receiving session transfer:", e);
