@@ -4451,7 +4451,13 @@ type TabID = 'arrest' | 'logbook' | 'settings';
 const AppContent: React.FC = () => {
   const [currentTab, setCurrentTab] = useState<TabID>('arrest');
   const [pdfToShow, setPdfToShow] = useState<PDFIdentifiable | null>(null);
-  const [showInstallModal, setShowInstallModal] = useState(false);
+  const [showInstallModal, setShowInstallModal] = useState(() => {
+    const hasSeenInstructions = localStorage.getItem('eResusSeenInstallInstructions');
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches 
+      || (window.navigator as any).standalone 
+      || document.referrer.includes('android-app://');
+    return !hasSeenInstructions && !isStandalone;
+  });
   const [showNewborn, setShowNewborn] = useState(() => {
     return localStorage.getItem('eresus_active_view') === 'nls';
   });
@@ -4492,16 +4498,6 @@ const AppContent: React.FC = () => {
     }
   }, [appearanceMode]);
   
-  useEffect(() => {
-    const hasSeenInstructions = localStorage.getItem('eResusSeenInstallInstructions');
-    const isStandalone = window.matchMedia('(display-mode: standalone)').matches 
-      || (window.navigator as any).standalone 
-      || document.referrer.includes('android-app://');
-    
-    if (!hasSeenInstructions && !isStandalone) {
-      setShowInstallModal(true);
-    }
-  }, []);
   
   const hasSeenAccountPrompt = localStorage.getItem('eResusSeenAccountPrompt');
 
