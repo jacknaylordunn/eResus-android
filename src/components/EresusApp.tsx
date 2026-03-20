@@ -762,10 +762,21 @@ const FirebaseProvider: React.FC<React.PropsWithChildren<{}>> = ({ children }) =
 
   if (!services || !authReady) {
     return (
-      <div className="flex items-center justify-center h-screen bg-gray-100 dark:bg-gray-900">
-        <div className="flex flex-col items-center">
-          <HeartPulse className="w-16 h-16 text-red-500 animate-pulse" />
-          <p className="text-lg text-gray-700 dark:text-gray-300 mt-4">Connecting to services...</p>
+      <div className="flex items-center justify-center h-screen bg-background">
+        <div className="flex flex-col items-center gap-6">
+          <div className="relative">
+            <div className="w-20 h-20 bg-gradient-to-br from-red-500 to-red-700 rounded-2xl flex items-center justify-center shadow-lg">
+              <HeartPulse size={44} className="text-white" />
+            </div>
+            <div className="absolute inset-0 w-20 h-20 bg-gradient-to-br from-red-500 to-red-700 rounded-2xl animate-ping opacity-20" />
+          </div>
+          <div className="flex flex-col items-center gap-2">
+            <h1 className="text-2xl font-bold text-foreground tracking-tight">eResus</h1>
+            <div className="flex items-center gap-2">
+              <div className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+              <p className="text-sm text-muted-foreground font-medium">Loading</p>
+            </div>
+          </div>
         </div>
       </div>
     );
