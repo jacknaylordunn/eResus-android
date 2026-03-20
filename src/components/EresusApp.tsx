@@ -1650,10 +1650,10 @@ ${[...events].sort((a, b) => a.timestamp - b.timestamp).map(e => `[${TimeFormatt
     }
   };
 
-  const receiveSessionTransfer = async (transferId: string): Promise<boolean> => {
+  const receiveSessionTransfer = async (transferId: string): Promise<{ success: boolean; error?: string }> => {
     try {
       const transferDoc = await getDoc(doc(db, 'transfers', transferId));
-      if (!transferDoc.exists()) return false;
+      if (!transferDoc.exists()) return { success: false, error: 'Transfer not found. Check the code and try again.' };
       
       const data = transferDoc.data();
       const state = JSON.parse(data.stateData);
