@@ -699,7 +699,7 @@ const migrateAnonymousLogs = async (db: Firestore, oldUserId: string, newUserId:
       }
       await deleteDoc(doc(db, oldLogsPath, logDoc.id));
     }
-    console.log(`Migrated ${oldLogsSnap.size} logs from ${oldUserId} to ${newUserId}`);
+    if (import.meta.env.DEV) console.log(`Migrated ${oldLogsSnap.size} logs`);
   } catch (e) {
     console.error("Error migrating logs:", e);
   }
