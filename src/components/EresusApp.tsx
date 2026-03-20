@@ -3137,13 +3137,13 @@ const PendingView: React.FC<{
     if (receiveCode.length !== 6) return;
     setIsReceiving(true);
     setReceiveError('');
-    const success = await receiveSessionTransfer(receiveCode);
+    const result = await receiveSessionTransfer(receiveCode);
     setIsReceiving(false);
-    if (success) {
+    if (result.success) {
       setShowReceiveTransfer(false);
       setReceiveCode('');
     } else {
-      setReceiveError('Transfer not found. Check the code and try again.');
+      setReceiveError(result.error || 'Transfer not found. Check the code and try again.');
     }
   };
 
