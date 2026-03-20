@@ -1416,7 +1416,7 @@ CRITICAL INTERVENTIONS (REAL-WORLD TIME)
 Initial Rhythm: ${initialRhythm || 'None'}
 First IV / IO: ${firstIVIO || 'None'}
 First Airway: ${firstAirway || 'None'}
-First Adrenaline: ${firstAdrenaline || 'None'}
+
 Last Adrenaline: ${lastAdrenaline || 'None'}
 
 Shocks: ${shockCount}  |  Adrenaline: ${adrenalineCount}  |  Amiodarone: ${amiodaroneCount}  |  Lidocaine: ${Math.max(lidocaineCount, dynamicLidocaineCount)}
@@ -2422,10 +2422,6 @@ const SummaryView: React.FC<{ isOpen: boolean; onClose: () => void; }> = ({ isOp
             <div className="flex justify-between">
               <span className="text-gray-700 dark:text-gray-300">First Airway:</span>
               <span className="font-bold text-gray-900 dark:text-white">{firstAirway || 'None'}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-700 dark:text-gray-300">First Adrenaline:</span>
-              <span className="font-bold text-gray-900 dark:text-white">{firstAdrenaline || 'None'}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-700 dark:text-gray-300">Last Adrenaline:</span>
@@ -3913,10 +3909,10 @@ const LogbookView: React.FC = () => {
                 <p className="text-green-600 dark:text-green-400 font-semibold">ROSC achieved</p>
               )}
               {selectedLog.torTime != null && (
-                <p className="text-red-500 font-semibold">TOR confirmed</p>
+                <p className="text-red-500 font-semibold">TOR at {selectedLog.startTime ? new Date(selectedLog.startTime.toDate().getTime() + selectedLog.torTime * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : TimeFormatter.format(selectedLog.torTime)}</p>
               )}
               {selectedLog.vodTime != null && (
-                <p className="text-red-500 font-semibold">VOD confirmed</p>
+                <p className="text-red-500 font-semibold">VOD at {selectedLog.startTime ? new Date(selectedLog.startTime.toDate().getTime() + selectedLog.vodTime * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : TimeFormatter.format(selectedLog.vodTime)}</p>
               )}
               <p className="text-gray-700 dark:text-gray-300">
                 Total Duration: {TimeFormatter.format(selectedLog.totalDuration)}
@@ -3937,10 +3933,6 @@ const LogbookView: React.FC = () => {
               <div className="flex justify-between">
                 <span className="text-gray-600 dark:text-gray-400">First Airway:</span>
                 <span className="font-bold text-gray-900 dark:text-white">{extractFirstEventTime(selectedLogEvents, ['advanced airway'], selectedLog.startTime?.toDate()) || 'None'}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600 dark:text-gray-400">First Adrenaline:</span>
-                <span className="font-bold text-gray-900 dark:text-white">{extractFirstEventTime(selectedLogEvents, ['adrenaline'], selectedLog.startTime?.toDate()) || 'None'}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600 dark:text-gray-400">Last Adrenaline:</span>
