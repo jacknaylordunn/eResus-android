@@ -2071,19 +2071,87 @@ const EditLogPatientInfoModal: React.FC<{
 // Install Instructions Modal (first-time PWA users)
 const InstallInstructionsModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isOpen, onClose }) => {
   if (!isOpen) return null;
+
+  const ua = navigator.userAgent.toLowerCase();
+  const isIOS = /iphone|ipad|ipod/.test(ua);
+  const isAndroid = /android/.test(ua);
+  const isMac = /macintosh|mac os x/.test(ua) && !isIOS;
+  const isWindows = /windows/.test(ua);
+
+  const getInstructions = () => {
+    if (isIOS) return {
+      device: 'iPhone / iPad',
+      steps: [
+        'Tap the Share button at the bottom of Safari',
+        'Scroll down and tap "Add to Home Screen"',
+        'Tap "Add" in the top right corner'
+      ]
+    };
+    if (isAndroid) return {
+      device: 'Android',
+      steps: [
+        'Tap the three-dot menu (⋮) in Chrome',
+        'Tap "Add to Home screen" or "Install app"',
+        'Confirm by tapping "Add"'
+      ]
+    };
+    if (isMac) return {
+      device: 'Mac',
+      steps: [
+        'In Safari: File → "Add to Dock"',
+        'In Chrome: click the install icon (⊕) in the address bar',
+        'Or use Menu → "Install eResus…"'
+      ]
+    };
+    if (isWindows) return {
+      device: 'Windows',
+      steps: [
+        'In Chrome/Edge: click the install icon (⊕) in the address bar',
+        'Or use Menu → "Install eResus…"',
+        'The app will appear in your Start menu'
+      ]
+    };
+    return {
+      device: 'your device',
+      steps: [
+        'Look for an "Install" or "Add to Home Screen" option in your browser menu',
+        'This creates a shortcut for quick, full-screen access',
+        'The app works offline once installed'
+      ]
+    };
+  };
+
+  const info = getInstructions();
   
   return (
     <div className="fixed inset-0 bg-gray-900/95 z-50 flex items-center justify-center p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-sm p-6 space-y-4 max-h-[90vh] overflow-y-auto">
-        <HeartPulse size={48} className="text-red-500 mx-auto" />
-        <h2 className="text-xl font-bold text-center text-gray-900 dark:text-white">Welcome to eResus</h2>
-        <p className="text-sm text-center text-gray-600 dark:text-gray-400">
-          For the best experience, add eResus to your home screen. This allows offline access and a full-screen experience.
-        </p>
-        <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg text-sm text-gray-700 dark:text-gray-300 space-y-2">
-          <p><strong>iOS Safari:</strong> Tap the Share button → "Add to Home Screen"</p>
-          <p><strong>Android Chrome:</strong> Tap the three dots → "Add to Home screen"</p>
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-sm p-6 space-y-5 max-h-[90vh] overflow-y-auto">
+        <div className="flex flex-col items-center space-y-3">
+          <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-red-500 to-red-700 flex items-center justify-center shadow-lg">
+            <HeartPulse size={40} className="text-white" />
+          </div>
+          <h2 className="text-xl font-bold text-center text-gray-900 dark:text-white">Install eResus</h2>
+          <p className="text-sm text-center text-gray-500 dark:text-gray-400">
+            Add eResus to your home screen for instant access, offline support, and a full-screen experience.
+          </p>
         </div>
+
+        <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-4 space-y-3">
+          <p className="text-xs font-semibold uppercase tracking-wide text-blue-600 dark:text-blue-400">
+            {info.device}
+          </p>
+          <ol className="space-y-2 text-sm text-gray-700 dark:text-gray-300">
+            {info.steps.map((step, i) => (
+              <li key={i} className="flex items-start space-x-2.5">
+                <span className="flex-shrink-0 w-5 h-5 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center mt-0.5">
+                  {i + 1}
+                </span>
+                <span>{step}</span>
+              </li>
+            ))}
+          </ol>
+        </div>
+
         <button onClick={onClose} className="w-full py-3 rounded-xl bg-blue-600 text-white font-bold active:scale-95 transition-transform">
           Continue to App
         </button>
