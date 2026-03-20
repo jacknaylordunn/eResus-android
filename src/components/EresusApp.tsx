@@ -3842,15 +3842,29 @@ const LogbookView: React.FC = () => {
             </div>
 
             {/* Critical Interventions */}
-            {selectedLog.initialRhythm && (
-              <div className="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg space-y-1 text-sm">
-                <h4 className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Critical Interventions</h4>
-                <div className="flex justify-between">
-                  <span className="text-gray-600 dark:text-gray-400">Initial Rhythm:</span>
-                  <span className="font-bold text-gray-900 dark:text-white">{selectedLog.initialRhythm}</span>
-                </div>
+            <div className="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg space-y-1 text-sm">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Critical Interventions</h4>
+              <div className="flex justify-between">
+                <span className="text-gray-600 dark:text-gray-400">Initial Rhythm:</span>
+                <span className="font-bold text-gray-900 dark:text-white">{selectedLog.initialRhythm || 'None'}</span>
               </div>
-            )}
+              <div className="flex justify-between">
+                <span className="text-gray-600 dark:text-gray-400">First IV / IO:</span>
+                <span className="font-bold text-gray-900 dark:text-white">{extractFirstEventTime(selectedLogEvents, ['vascular access'], selectedLog.startTime?.toDate()) || 'None'}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600 dark:text-gray-400">First Airway:</span>
+                <span className="font-bold text-gray-900 dark:text-white">{extractFirstEventTime(selectedLogEvents, ['advanced airway'], selectedLog.startTime?.toDate()) || 'None'}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600 dark:text-gray-400">First Adrenaline:</span>
+                <span className="font-bold text-gray-900 dark:text-white">{extractFirstEventTime(selectedLogEvents, ['adrenaline'], selectedLog.startTime?.toDate()) || 'None'}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600 dark:text-gray-400">Last Adrenaline:</span>
+                <span className="font-bold text-gray-900 dark:text-white">{extractLastEventTime(selectedLogEvents, ['adrenaline'], selectedLog.startTime?.toDate()) || 'None'}</span>
+              </div>
+            </div>
             
             {/* Stats */}
             <div className="flex justify-around py-2">
