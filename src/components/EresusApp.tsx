@@ -2424,10 +2424,6 @@ const SummaryView: React.FC<{ isOpen: boolean; onClose: () => void; }> = ({ isOp
               <span className="font-bold text-gray-900 dark:text-white">{firstAirway || 'None'}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-700 dark:text-gray-300">First Adrenaline:</span>
-              <span className="font-bold text-gray-900 dark:text-white">{firstAdrenaline || 'None'}</span>
-            </div>
-            <div className="flex justify-between">
               <span className="text-gray-700 dark:text-gray-300">Last Adrenaline:</span>
               <span className="font-bold text-gray-900 dark:text-white">{lastAdrenaline || 'None'}</span>
             </div>
