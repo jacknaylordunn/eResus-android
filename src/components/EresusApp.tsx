@@ -898,15 +898,9 @@ const useArrestViewModel = () => {
     return reversibleCauses.find(item => item.name === "Hypothermia")?.hypothermiaStatus !== HypothermiaStatus.Severe;
   }, [reversibleCauses]);
 
-  const isAmiodaroneAvailable = useMemo(() => {
-    const isEligibleShockCount = (shockCount >= 3 && amiodaroneCount === 0) || (shockCount >= 5 && amiodaroneCount === 1);
-    return isEligibleShockCount && antiarrhythmicGiven !== AntiarrhythmicDrug.Lidocaine && isAdrenalineAvailable;
-  }, [shockCount, amiodaroneCount, antiarrhythmicGiven, isAdrenalineAvailable]);
-
-  const isLidocaineAvailable = useMemo(() => {
-    const isEligibleShockCount = (shockCount >= 3 && lidocaineCount === 0) || (shockCount >= 5 && lidocaineCount === 1);
-    return isEligibleShockCount && antiarrhythmicGiven !== AntiarrhythmicDrug.Amiodarone;
-  }, [shockCount, lidocaineCount, antiarrhythmicGiven]);
+  // Amiodarone and Lidocaine are now always available (can be pressed anytime during arrest)
+  const isAmiodaroneAvailable = true;
+  const isLidocaineAvailable = true;
 
   const timeUntilAdrenaline = useMemo(() => {
     const lastAdrenalineTime = lastAdrenalineTimeRef.current;
