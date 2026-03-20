@@ -4196,7 +4196,7 @@ const SettingsView: React.FC = () => {
         
         {/* Developer Info */}
         <div className="text-center py-4 space-y-1">
-          <p className="text-xs text-gray-400 dark:text-gray-500">eResus v1.3</p>
+          <p className="text-xs text-gray-400 dark:text-gray-500">eResus v1.2</p>
           <a 
             href="https://tech.aegismedicalsolutions.co.uk" 
             target="_blank" 
