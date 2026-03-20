@@ -2092,6 +2092,64 @@ const InstallInstructionsModal: React.FC<{ isOpen: boolean; onClose: () => void 
   );
 };
 
+// Account Prompt View (onboarding sign-up prompt)
+const AccountPromptView: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isOpen, onClose }) => {
+  const { auth, user, isAnonymous } = useFirebase();
+  const [showAuthModal, setShowAuthModal] = useState(false);
+
+  if (!isOpen) return null;
+
+  // If user signed in during this prompt, auto-close
+  if (user && !isAnonymous) {
+    onClose();
+    return null;
+  }
+
+  return (
+    <>
+      <div className="fixed inset-0 bg-gray-900/95 z-50 flex items-center justify-center p-4">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-sm p-6 space-y-5 max-h-[90vh] overflow-y-auto">
+          <div className="w-16 h-16 mx-auto rounded-full bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center">
+            <Shield size={32} className="text-blue-600 dark:text-blue-400" />
+          </div>
+          <h2 className="text-xl font-bold text-center text-gray-900 dark:text-white">Create an Account</h2>
+          <p className="text-sm text-center text-gray-600 dark:text-gray-400">
+            Sign up to unlock extra features and keep your data safe.
+          </p>
+          <div className="space-y-3 text-sm text-gray-700 dark:text-gray-300">
+            <div className="flex items-start space-x-3">
+              <RotateCw size={18} className="text-blue-500 mt-0.5 shrink-0" />
+              <p><strong>Sync across devices</strong> — access your arrest logs from any phone, tablet, or computer.</p>
+            </div>
+            <div className="flex items-start space-x-3">
+              <Shield size={18} className="text-green-500 mt-0.5 shrink-0" />
+              <p><strong>Protect your data</strong> — anonymous logs are tied to this device only and can be lost if you clear your browser.</p>
+            </div>
+            <div className="flex items-start space-x-3">
+              <Users size={18} className="text-purple-500 mt-0.5 shrink-0" />
+              <p><strong>Transfer arrests</strong> — seamlessly hand over active arrests between signed-in devices.</p>
+            </div>
+          </div>
+          <button 
+            onClick={() => setShowAuthModal(true)}
+            className="w-full py-3 rounded-xl bg-blue-600 text-white font-bold active:scale-95 transition-transform">
+            Sign Up / Sign In
+          </button>
+          <button 
+            onClick={onClose}
+            className="w-full py-2 text-gray-500 dark:text-gray-400 font-medium">
+            Skip for Now
+          </button>
+        </div>
+      </div>
+      <AuthView isOpen={showAuthModal} onClose={() => {
+        setShowAuthModal(false);
+        // If user successfully signed in, the effect above will close the prompt
+      }} />
+    </>
+  );
+};
+
 // ============================================================================
 // NEW: Vascular Access Modal (Log IV/IO)
 // ============================================================================
@@ -4405,6 +4463,7 @@ const AppContent: React.FC = () => {
   const arrestViewModel = useArrestViewModel();
   const { appearanceMode, hasRespondedToResearchTerms, syncSettingsToFirestore, loadSettingsFromFirestore, researchModeEnabled, askForPatientInfo, userOrganization } = useSettings();
   const { db, userId, isAnonymous, user } = useFirebase();
+  const [showAccountPrompt, setShowAccountPrompt] = useState(false);
   const [showResearchConsent, setShowResearchConsent] = useState(false);
   const settingsSyncedRef = useRef(false);
 
@@ -4444,11 +4503,23 @@ const AppContent: React.FC = () => {
     }
   }, []);
   
+  const hasSeenAccountPrompt = localStorage.getItem('eResusSeenAccountPrompt');
+
   useEffect(() => {
-    if (!showInstallModal && !hasRespondedToResearchTerms) {
+    if (!showInstallModal && !hasSeenAccountPrompt && isAnonymous) {
+      setShowAccountPrompt(true);
+    } else if (!showInstallModal && !hasRespondedToResearchTerms) {
       setShowResearchConsent(true);
     }
-  }, [showInstallModal, hasRespondedToResearchTerms]);
+  }, [showInstallModal, hasRespondedToResearchTerms, isAnonymous]);
+
+  const handleCloseAccountPrompt = () => {
+    localStorage.setItem('eResusSeenAccountPrompt', 'true');
+    setShowAccountPrompt(false);
+    if (!hasRespondedToResearchTerms) {
+      setShowResearchConsent(true);
+    }
+  };
   
   const handleCloseInstallModal = () => {
     localStorage.setItem('eResusSeenInstallInstructions', 'true');
@@ -4494,6 +4565,7 @@ const AppContent: React.FC = () => {
 
         {pdfToShow && <PDFView pdf={pdfToShow} onClose={() => setPdfToShow(null)} />}
         <InstallInstructionsModal isOpen={showInstallModal} onClose={handleCloseInstallModal} />
+        <AccountPromptView isOpen={showAccountPrompt} onClose={handleCloseAccountPrompt} />
         <ResearchConsentView isOpen={showResearchConsent} onClose={() => setShowResearchConsent(false)} />
         <PatientInfoPromptView isOpen={arrestViewModel.showPatientInfoPrompt} onClose={() => arrestViewModel.setShowPatientInfoPrompt(false)} />
       </div>
