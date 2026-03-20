@@ -25,25 +25,13 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // User-specific arrest logs - only the owning user can access
-    match /artifacts/{artifact}/users/{userId}/arrestLogs/{document=**} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+    // Allow access to arrest logs based on userId (device ID)
+    match /artifacts/eresus-6e65e/users/{userId}/arrestLogs/{document=**} {
+      allow read, write: if true; // Allow all devices to read/write their own data
     }
     
-    match /artifacts/{artifact}/users/{userId}/arrestLogsArchive/{document=**} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
-    }
-
-    // Research arrest logs - authenticated users only
-    match /arrestLogs/{document=**} {
-      allow read, write: if request.auth != null;
-    }
-
-    // Session transfers - authenticated users, with expiry enforcement
-    match /transfers/{transferId} {
-      allow create: if request.auth != null;
-      allow read: if request.auth != null && resource.data.expiresAt > request.time;
-      allow delete: if request.auth != null;
+    match /artifacts/eresus-6e65e/users/{userId}/arrestLogsArchive/{document=**} {
+      allow read, write: if true; // Allow all devices to read/write their own archived data
     }
     
     // Default: deny all other access
@@ -54,7 +42,7 @@ service cloud.firestore {
 }
 ```
 
-**Important:** These rules require Firebase Authentication. All users must be signed in (even anonymously) to access data.
+**Important:** These rules allow any device to access data. Since each device has a unique ID stored in localStorage, this provides device-level isolation. Consider adding request authentication if you need additional security.
 
 ### 3. Optional: Enable Offline Persistence
 

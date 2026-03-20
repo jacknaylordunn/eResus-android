@@ -83,28 +83,19 @@ A professional web application for documenting cardiac arrest resuscitation atte
 
 3. **Configure Firestore Rules**
    
-   Use these authentication-scoped rules:
+   For development, you can use these basic rules (replace with proper authentication for production):
    ```
    rules_version = '2';
    service cloud.firestore {
      match /databases/{database}/documents {
        match /artifacts/{artifact}/users/{userId}/arrestLogs/{document=**} {
-         allow read, write: if request.auth != null && request.auth.uid == userId;
-       }
-       match /arrestLogs/{document=**} {
-         allow read, write: if request.auth != null;
-       }
-       match /transfers/{transferId} {
-         allow create: if request.auth != null;
-         allow read: if request.auth != null && resource.data.expiresAt > request.time;
-         allow delete: if request.auth != null;
-       }
-       match /{document=**} {
-         allow read, write: if false;
+         allow read, write: if true;
        }
      }
    }
    ```
+
+   ⚠️ **Important**: For production, implement proper authentication and security rules!
 
 ## Deployment
 

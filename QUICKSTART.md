@@ -69,23 +69,13 @@ Get your eResus app running in 5 minutes!
    service cloud.firestore {
      match /databases/{database}/documents {
        match /artifacts/{artifact}/users/{userId}/arrestLogs/{document=**} {
-         allow read, write: if request.auth != null && request.auth.uid == userId;
-       }
-       match /arrestLogs/{document=**} {
-         allow read, write: if request.auth != null;
-       }
-       match /transfers/{transferId} {
-         allow create: if request.auth != null;
-         allow read: if request.auth != null && resource.data.expiresAt > request.time;
-         allow delete: if request.auth != null;
-       }
-       match /{document=**} {
-         allow read, write: if false;
+         allow read, write: if true;
        }
      }
    }
    ```
 - Click "Publish"
+- ⚠️ **Note**: These are development rules. See DEPLOYMENT.md for production rules!
 
 ### 5. Copy Config to .env.local
 - Use the values from step 2
