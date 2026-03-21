@@ -1679,12 +1679,54 @@ ${[...events].sort((a, b) => a.timestamp - b.timestamp).map(e => `[${TimeFormatt
 
       const state = JSON.parse(data.stateData);
 
+      // --- Normalize iOS format to PWA format ---
+
+      // 1. startTime: iOS uses Apple reference date (seconds since Jan 1, 2001)
+      //    PWA uses ISO date string. Detect and convert.
+      const APPLE_EPOCH = Date.UTC(2001, 0, 1); // Jan 1 2001 in ms
+      let normalizedStartTime: Date | null = null;
+      if (state.startTime != null) {
+        if (typeof state.startTime === 'number') {
+          // Apple reference date: convert to JS Date
+          normalizedStartTime = new Date(APPLE_EPOCH + state.startTime * 1000);
+        } else if (typeof state.startTime === 'string') {
+          normalizedStartTime = new Date(state.startTime);
+        }
+      }
+
+      // 2. events: iOS base64-encodes as eventsData, PWA uses events array
+      let normalizedEvents: any[] = state.events ?? [];
+      if (!state.events && state.eventsData) {
+        try {
+          const decoded = atob(state.eventsData);
+          normalizedEvents = JSON.parse(decoded);
+        } catch {
+          console.warn('Failed to decode iOS eventsData');
+          normalizedEvents = [];
+        }
+      }
+
+      // 3. uiState: iOS uses object {"default":{}}, PWA uses string "default"
+      let normalizedUiState = state.uiState;
+      if (typeof state.uiState === 'object' && state.uiState !== null) {
+        // Extract the key name from the iOS enum-style object
+        const keys = Object.keys(state.uiState);
+        if (keys.length > 0) {
+          normalizedUiState = keys[0]; // "default" | "analyzing" | "shockAdvised"
+        }
+      }
+
+      // 4. arrestState: iOS may use lowercase, normalize
+      const normalizedArrestState = typeof state.arrestState === 'string'
+        ? state.arrestState.toUpperCase()
+        : state.arrestState;
+
       // Stop any existing timer first
       stopTimer();
 
       // Set the start time ref FIRST so the timer can use it
-      if (state.startTime) {
-        startTimeRef.current = new Date(state.startTime);
+      if (normalizedStartTime) {
+        startTimeRef.current = normalizedStartTime;
       }
       cprCycleStartTimeRef.current = state.cprCycleStartTime ?? 0;
       lastAdrenalineTimeRef.current = state.lastAdrenalineTime ?? null;
@@ -1703,11 +1745,11 @@ ${[...events].sort((a, b) => a.timestamp - b.timestamp).map(e => `[${TimeFormatt
       };
 
       // Set ALL state at once
-      setArrestState(state.arrestState);
+      setArrestState(normalizedArrestState);
       setMasterTime(realElapsed);
       setCprTime(state.cprTime);
       setTimeOffset(state.timeOffset);
-      setEvents([...state.events, transferEvent]);
+      setEvents([...normalizedEvents, transferEvent]);
       setShockCount(state.shockCount);
       setAdrenalineCount(state.adrenalineCount);
       setAmiodaroneCount(state.amiodaroneCount);
@@ -1718,7 +1760,7 @@ ${[...events].sort((a, b) => a.timestamp - b.timestamp).map(e => `[${TimeFormatt
       setPostROSCTasks(state.postROSCTasks);
       setPostMortemTasks(state.postMortemTasks);
       setPatientAgeCategory(state.patientAgeCategory);
-      setUiState(state.uiState);
+      setUiState(normalizedUiState);
       setHideAdrenalinePrompt(state.hideAdrenalinePrompt ?? false);
       setHideAmiodaronePrompt(state.hideAmiodaronePrompt ?? false);
       setLastRhythmNonShockable(state.lastRhythmNonShockable ?? false);
