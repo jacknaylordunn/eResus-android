@@ -1025,10 +1025,18 @@ const useArrestViewModel = () => {
     savedArrestStateRef.current = null;
   };
   
-  const discardRecoveredSession = () => {
+  const discardRecoveredSession = async () => {
+    // Save the recovered session to logbook before discarding
+    if (startTimeRef.current && events.length > 0) {
+      try {
+        await saveLogToDatabase();
+      } catch (e) {
+        console.error("Error saving recovered session:", e);
+      }
+    }
     setShowRecoveryPrompt(false);
     savedArrestStateRef.current = null;
-    localStorage.removeItem(ARREST_SESSION_KEY);
+    performReset(false, false);
   };
 
   // Timer
