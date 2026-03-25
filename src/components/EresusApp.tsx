@@ -1025,10 +1025,18 @@ const useArrestViewModel = () => {
     savedArrestStateRef.current = null;
   };
   
-  const discardRecoveredSession = () => {
+  const discardRecoveredSession = async () => {
+    // Save the recovered session to logbook before discarding
+    if (startTimeRef.current && events.length > 0) {
+      try {
+        await saveLogToDatabase();
+      } catch (e) {
+        console.error("Error saving recovered session:", e);
+      }
+    }
     setShowRecoveryPrompt(false);
     savedArrestStateRef.current = null;
-    localStorage.removeItem(ARREST_SESSION_KEY);
+    performReset(false, false);
   };
 
   // Timer
@@ -3223,7 +3231,7 @@ const PendingView: React.FC<{
           <p className="text-sm text-gray-700 dark:text-gray-300">An active arrest session was interrupted. Would you like to resume it?</p>
           <div className="flex space-x-3">
             <ActionButton title="Resume" backgroundColor="bg-green-600" foregroundColor="text-white" height="h-12" onClick={resumeRecoveredSession} />
-            <ActionButton title="Save & Discard" backgroundColor="bg-gray-500" foregroundColor="text-white" height="h-12" onClick={discardRecoveredSession} />
+            <ActionButton title="Save & Close" backgroundColor="bg-gray-500" foregroundColor="text-white" height="h-12" onClick={discardRecoveredSession} />
           </div>
         </div>
       )}
