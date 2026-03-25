@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "118352301751",
+    "project_id": "eresus-6e65e",
+    "storage_bucket": "eresus-6e65e.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:118352301751:android:02ec8de0270292ae9e8732",
+        "android_client_info": {
+          "package_name": "co.uk.aegismedicalsolutions.eresus"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "118352301751-uqa88f4vsfkquo2o0rairbo61s38kl1j.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAV_5RhJpa0EdM89mUC3IZ-J6RUUNb4cM4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "118352301751-uqa88f4vsfkquo2o0rairbo61s38kl1j.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "118352301751-dakj2kp3rk52m7gireohcsk0frmqadao.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "co.uk.aegismedicalsolutions.eResus",
+                "app_store_id": "6753123316"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
