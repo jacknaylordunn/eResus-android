@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, SafeAreaView, Platform } from 'react-native';
+import { View, StyleSheet, SafeAreaView, Platform, Linking } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { useAssets } from 'expo-asset';
 
@@ -22,6 +22,14 @@ export default function App() {
         allowUniversalAccessFromFileURLs={true}
         javaScriptEnabled={true}
         domStorageEnabled={true}
+        mediaPlaybackRequiresUserAction={false}
+        onShouldStartLoadWithRequest={(request: any) => {
+          if (request.url.startsWith('http')) {
+            Linking.openURL(request.url);
+            return false;
+          }
+          return true;
+        }}
         style={styles.webview}
         bounces={false}
       />
