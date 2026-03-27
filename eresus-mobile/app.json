@@ -9,7 +9,8 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "co.uk.aegismedicalsolutions.eresus"
     },
     "android": {
       "package": "co.uk.aegismedicalsolutions.eresus",
